@@ -3,6 +3,9 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 pass=0; fail=0
+# テストは本番の記録に触らない。隔離した一時ディレクトリへ向ける。
+# （テストが実データを消すと、セッション中に説明済みの用語が「初出」に戻ってしまう）
+export CLAUDE_MANUAL_METRICS="$(mktemp -d)/metrics"
 chk() { # chk <説明> <期待終了コード> <実際の終了コード>
   if [ "$2" = "$3" ]; then echo "  [ok] $1"; pass=$((pass+1));
   else echo "  [NG] $1  期待=$2 実際=$3"; fail=$((fail+1)); fi
@@ -46,26 +49,26 @@ chk "【型A】出典なしの【確認済】は差し戻す" 2 "$(run "$(J '【
 chk "【型A】出典ありの【確認済】は通す" 0 "$(run "$(J '【確認済】改正の事実を確認しました。出典：https://example.gov/x')")"
 long=$(python3 -c "print('作業の詳細な説明。'*60 + 'ファイルを作成しました。')")
 chk "【型B】長文の作業報告で状態行がなければ差し戻す" 2 "$(run "$(J "$long")")"
-rm -f metrics/.stopguard-test
+rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
 chk "空の応答は通す" 0 "$(run "$(J '')")"
 chk "壊れた入力でも作業を止めない" 0 "$(echo 'not json' | python3 .claude/hooks/check_output.py >/dev/null 2>&1; echo $?)"
-rm -f metrics/.stopguard-test metrics/.terms-test
+rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
 chk "【型I】未完了なのに中断理由が無ければ差し戻す" 2 "$(run "$(J '【この応答で完了したこと】調査。【未完了】実装。【次に最初に行うこと】実装の着手。')")"
-rm -f metrics/.stopguard-test
+rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
 chk "【型I】中断理由（承認待ち）が書いてあれば通す" 0 "$(run "$(J '【この応答で完了したこと】調査。【未完了】実装（承認待ちのため中断）。— 状態：入力待ち　次：ご承認ください')")"
-rm -f metrics/.stopguard-test metrics/.terms-test
+rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
 jarg=$(python3 -c "print('詳しい説明。'*60 + 'フックを使って強制します。出力契約も適用します。')")
 chk "【型J】初出の専門用語に説明が無ければ差し戻す" 2 "$(run "$(J "$jarg")")"
-rm -f metrics/.stopguard-test metrics/.terms-test
+rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
 jok=$(python3 -c "print('詳しい説明。'*60 + 'フック（＝条件が満たされたら自動で動く小さなプログラム）を使います。')")
 chk "【型J】説明を添えれば通す" 0 "$(run "$(J "$jok")")"
-rm -f metrics/.stopguard-test metrics/.terms-test
+rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
 tm=$(python3 -c "print('詳しい説明。'*60 + '本日の時点で最新の状況です。')")
 chk "【型K】日時に依存する記述に基準日が無ければ差し戻す" 2 "$(run "$(J "$tm")")"
-rm -f metrics/.stopguard-test
+rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
 tmok=$(python3 -c "print('詳しい説明。'*60 + '本日（2026-08-27 JST）時点で最新の状況です。')")
 chk "【型K】基準日を書けば通す" 0 "$(run "$(J "$tmok")")"
-rm -f metrics/.stopguard-test metrics/.terms-test
+rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
 r1=$(run "$(J 'これから実装に着手します。')"); r2=$(run "$(J 'これから実装に着手します。')")
 chk "同一応答の差し戻しは1回まで（無限ループ防止）" "2 0" "$r1 $r2"
 
@@ -87,5 +90,5 @@ chk "ヒアドキュメントの後の実行は拒否" "deny" "$(d "$hd2")"
 
 echo "────────────────────────────"
 echo "合格 $pass 件 / 不合格 $fail 件"
-rm -f metrics/.stopguard-test metrics/.terms-test
+rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
 [ "$fail" -eq 0 ]
