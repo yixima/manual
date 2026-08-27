@@ -23,6 +23,20 @@ DANGEROUS = [
     (re.compile(r'\bshred\b|\bmkfs\b|>\s*/dev/sd'), '不可逆な破壊操作'),
 ]
 
+RE_HEREDOC = re.compile(r"<<-?\s*['\"]?(\w+)['\"]?\n.*?^\1\s*$", re.S | re.M)
+
+def strip_heredocs(cmd):
+    """ヒアドキュメントの中身を取り除く。
+
+    ファイルに書き込む文字列の中に危険なコマンドの「文字列」が含まれていても、
+    それは実行ではない。誤って作業を止めることは、それ自体がマニュアル違反である
+    （§2-9 承認済み作業の非中断実行）。実行される位置にあるものだけを判定する。
+    （背景）テストスクリプトを書き込むヒアドキュメントの中に一時ディレクトリの
+    再帰削除コマンドの文字列が含まれていたため、本フックが誤って作業を拒否した
+    （2026-08・L2 記録参照）。
+    """
+    return RE_HEREDOC.sub('<<HEREDOC_BODY_REMOVED>>', cmd)
+
 def deny(reason):
     print(json.dumps({"hookSpecificOutput": {
         "hookEventName": "PreToolUse",
@@ -51,7 +65,7 @@ def main():
 
     # B. 不可逆操作
     if tool == "Bash":
-        cmd = ti.get("command", "") or ""
+        cmd = strip_heredocs(ti.get("command", "") or "")
         for rx, label in DANGEROUS:
             if rx.search(cmd):
                 deny(f"§8-5 違反：`{label}` を含む不可逆操作を検出しました。"

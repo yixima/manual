@@ -14,9 +14,14 @@
 import re, sys, pathlib
 
 DIST = pathlib.Path('dist')
-FILES = {'L0': DIST / 'L0_core_card_v16.md',
-         'L1': DIST / 'L1_manual_v16.md',
-         'L2': DIST / 'L2_records_v16.md'}
+# 版はコアカードのファイル名から自動判定する（版を手で二重管理しない）
+_cards = sorted(DIST.glob('L0_core_card_v*.md'))
+if not _cards:
+    print('[FAIL] dist/ に L0_core_card_v*.md が無い', file=sys.stderr); sys.exit(1)
+VER = re.search(r'(v\d+)', _cards[-1].name).group(1)
+FILES = {'L0': DIST / f'L0_core_card_{VER}.md',
+         'L1': DIST / f'L1_manual_{VER}.md',
+         'L2': DIST / f'L2_records_{VER}.md'}
 SAFE = re.compile(r'^[A-Za-z0-9._-]+$')
 ok, ng = [], []
 
@@ -75,16 +80,22 @@ def table_left(t):
     return rows
 t0 = set(table_left(txt['L0'][txt['L0'].find('自動発動'):]))
 t1 = set(table_left(txt['L1'][txt['L1'].find('0-11.'):txt['L1'].find('0-12.')]))
-missing = t1 - t0
+missing, extra = t1 - t0, t0 - t1
 check(not missing, 'L1 の自動発動表の行が L0 にすべてある', f'L0 に欠落: {sorted(missing)}')
+check(not extra, 'L0 に L1 へ無い行が紛れていない（双方向の一致）', f'L0 に余分: {sorted(extra)}')
 
 # 4. 版表記・発行日の一致
-vers = {k: set(re.findall(r'v1[0-9]\b', v[:1200])) for k, v in txt.items()}
+vers = {k: set(re.findall(r'v\d+\b', v[:1200])) for k, v in txt.items()}
 dates = {k: set(re.findall(r'2026年\d+月\d+日', v[:1200])) for k, v in txt.items()}
-check(all('v16' in s for s in vers.values()), '3ファイルすべてに v16 の版表記がある', str(vers))
-check(all('2026年8月27日' in s for s in dates.values()), '3ファイルの発行日が一致する', str(dates))
+check(all(VER in s for s in vers.values()), f'3ファイルすべてに {VER} の版表記がある', str(vers))
+_d = set.intersection(*dates.values()) if all(dates.values()) else set()
+check(bool(_d), '3ファイルの発行日が一致する', str(dates))
 
-# 5. ファイル名の ASCII 安全性
+# 5. 旧版ファイルが dist/ に残っていないこと（版ずれの温床になる）
+_stale = [f.name for f in DIST.glob('L[012]_*.md') if VER not in f.name]
+check(not _stale, f'dist/ に旧版ファイルが残っていない', f'旧版: {_stale}')
+
+# 6. ファイル名の ASCII 安全性
 for p in DIST.glob('*'):
     check(bool(SAFE.match(p.name)), f'ファイル名 {p.name} が ASCII 安全', '非ASCIIを含む')
 

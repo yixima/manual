@@ -18,7 +18,10 @@ def load_cfg(cwd):
     p = pathlib.Path(cwd) / '.claude' / 'manual-hooks.json'
     cfg = {"enforce": True, "rules": {"declaration_without_action": True,
                                       "missing_state_line": True,
-                                      "unsourced_verified_label": True}}
+                                      "unsourced_verified_label": True,
+                                      "unexplained_incomplete": True,
+                                      "undefined_jargon": True,
+                                      "undated_time_reference": True}}
     try:
         cfg.update(json.loads(p.read_text(encoding='utf-8')))
     except Exception:
@@ -39,7 +42,32 @@ RE_STATE = re.compile(r'(—\s*状態[:：])|(【この応答で完了したこ�
 RE_VERIFIED = re.compile(r'【確認済】')
 RE_SOURCE = re.compile(r'(https?://)|(出典[:：])|(一次資料)|(`[^`]+\.(md|py|sh|json|ya?ml)`)')
 
-def evaluate(msg, cfg):
+# R4【型I】未完了で終わるのに中断の理由が書かれていない（L1 §2-9 完遂義務）
+RE_INCOMPLETE = re.compile(r'(【未完了】|未完了|残りの作業|次に最初に行うこと|途中まで|一旦ここまで)')
+RE_REASON = re.compile(r'(質問|お伺い|ご判断|判断が必要|承認|許可|エラー|失敗しました|進めません|進められません|'
+                       r'危険|不可逆|確認が必要|確認させて|どちらに|ますか[？?]|でしょうか[？?])')
+
+# R5【型J】専門用語を初出で説明していない（L1 §2-13）
+def jargon_terms(cwd):
+    try:
+        g = json.loads((pathlib.Path(cwd) / '.claude' / 'glossary.json').read_text(encoding='utf-8'))
+        return [t for t in g.get('terms', []) if t]
+    except Exception:
+        return []
+
+def unexplained(msg, term):
+    """その用語が、この応答の中で一度も説明されずに使われていれば True。"""
+    for m in re.finditer(re.escape(term), msg):
+        seg = msg[m.end():m.end() + 25]
+        if seg.startswith('（') or seg.startswith('(') or seg.startswith('＝') or seg.startswith('とは'):
+            return False
+    return True
+
+# R6【型K】日時に依存する記述に基準日が無い（L1 §3-7）
+RE_TIMEREF = re.compile(r'(今日|本日|現在|最新|今月|今週|来週|来月|昨日|明日|締切|期限)')
+RE_DATE = re.compile(r'(\d{4}[-/年]\d{1,2}[-/月]\d{1,2}|\d{1,2}月\d{1,2}日|基準[:：]|JST|UTC)')
+
+def evaluate(msg, cfg, cwd='.', session='x'):
     """違反の一覧と、契約の充足状況を返す。"""
     r = cfg.get("rules", {})
     tail = msg.rstrip()[-200:]
@@ -53,6 +81,24 @@ def evaluate(msg, cfg):
     if r.get("unsourced_verified_label", True) and RE_VERIFIED.search(msg) and not RE_SOURCE.search(msg):
         viol.append(("型A", "【確認済】と書いているが出典が併記されていない。出典を書けないなら"
                             "【未確認・推測】へ落とす（§3-1）。"))
+    if r.get("unexplained_incomplete", True) and RE_INCOMPLETE.search(msg) and not RE_REASON.search(msg):
+        viol.append(("型I", "作業に未完了が残っているのに、中断の理由が書かれていない。"
+                            "続行を妨げる要因（①質問が必要 ②承認待ち ③エラーで進めない ④危険で確認が要る）が"
+                            "無いなら、応答を終えずに最後までやり切る。あるなら、①〜④のどれかを明示する（§2-9）。"))
+    if r.get("undefined_jargon", True) and len(msg) > 300:
+        seen = seen_terms(cwd, session)
+        new = [t for t in jargon_terms(cwd) if t in msg and t not in seen and unexplained(msg, t)]
+        if new:
+            add_seen(cwd, session, [t for t in jargon_terms(cwd) if t in msg])
+            viol.append(("型J", "このセッションで初めて使う専門用語に、意味の説明が無い："
+                                + "／".join(new[:5])
+                                + "。初出時に1行で意味を書く。例「フック（＝条件が満たされたら自動で動く"
+                                  "小さなプログラム）」（§2-13）。"))
+        else:
+            add_seen(cwd, session, [t for t in jargon_terms(cwd) if t in msg])
+    if r.get("undated_time_reference", True) and RE_TIMEREF.search(msg) and not RE_DATE.search(msg) and len(msg) > 300:
+        viol.append(("型K", "「今日」「現在」「最新」など日時に依存する記述があるが、基準となる日付が書かれていない。"
+                            "毎ターン注入される現在日時を基準にし、本文に基準日を明記する（§3-7）。"))
     contract = {
         "has_label": bool(re.search(r'【(確認済|未確認・推測|不明)】', msg)),
         "has_state_line": bool(RE_STATE.search(msg)),
@@ -60,6 +106,26 @@ def evaluate(msg, cfg):
         "length": len(msg),
     }
     return viol, contract
+
+def seen_terms(cwd, session):
+    """このセッションで既に説明済みの用語（初出判定のため）。"""
+    p = pathlib.Path(cwd) / 'metrics' / f'.terms-{session}'
+    try:
+        return set(p.read_text(encoding='utf-8').split())
+    except Exception:
+        return set()
+
+def add_seen(cwd, session, terms):
+    if not terms:
+        return
+    try:
+        d = pathlib.Path(cwd) / 'metrics'
+        d.mkdir(exist_ok=True)
+        p = d / f'.terms-{session}'
+        cur = seen_terms(cwd, session) | set(terms)
+        p.write_text(" ".join(sorted(cur)), encoding='utf-8')
+    except Exception:
+        pass
 
 def main():
     try:
@@ -73,7 +139,7 @@ def main():
         sys.exit(0)
 
     cfg = load_cfg(cwd)
-    viol, contract = evaluate(msg, cfg)
+    viol, contract = evaluate(msg, cfg, cwd, sid)
 
     # ① 測定：常に記録する
     try:

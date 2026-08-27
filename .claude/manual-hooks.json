@@ -1,9 +1,12 @@
 {
-  "_comment": "フックの挙動を切り替える。enforce=false にすると差し戻しを止め、記録だけを行う。",
+  "_comment": "フックの挙動を切り替える。enforce=false にすると差し戻しを止め、記録だけを行う。個別ルールも false にできる。無効化したときは、その事実と理由を L2 の記録に残すこと（黙って無効化しない）。",
   "enforce": true,
   "rules": {
     "declaration_without_action": true,
     "missing_state_line": true,
-    "unsourced_verified_label": true
+    "unsourced_verified_label": true,
+    "unexplained_incomplete": true,
+    "undefined_jargon": true,
+    "undated_time_reference": true
   }
 }
