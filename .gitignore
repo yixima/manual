@@ -1,3 +1,5 @@
 __pycache__/
 *.pyc
 .env
+metrics/compliance.jsonl
+metrics/.stopguard-*

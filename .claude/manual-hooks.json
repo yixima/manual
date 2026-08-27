@@ -1,0 +1,9 @@
+{
+  "_comment": "フックの挙動を切り替える。enforce=false にすると差し戻しを止め、記録だけを行う。",
+  "enforce": true,
+  "rules": {
+    "declaration_without_action": true,
+    "missing_state_line": true,
+    "unsourced_verified_label": true
+  }
+}
