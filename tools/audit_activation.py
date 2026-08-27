@@ -54,6 +54,17 @@ def block(lines, start_pat, end_pat):
         if on: buf.append(ln)
     return "\n".join(buf)
 
+def documented_exclusions(lines):
+    """§0-11 の「本表に載らない条項について」に、理由付きで明示除外された条項。"""
+    txt = block(lines, r'本表に載らない条項について', r'^\*\*0-12\.|^---')
+    out = set()
+    for ln in txt.splitlines():
+        # 各サブ箇条の先頭の太字トークンだけを除外対象とみなす（本文中の関連参照は拾わない）
+        m = re.match(r'\s*-\s+\*\*((?:§\s?\d+-\d+[・、]?)+)\*\*', ln)
+        if m:
+            out |= set(f"{a}-{b}" for a, b in REF.findall(m.group(1)))
+    return out
+
 def failure_records(lines):
     """§10-4 の失敗記録（- **記録：…**）と、その再発防止に挙がる条項。"""
     recs = []
@@ -78,7 +89,12 @@ def audit(path):
     reach = g | t
     orphans = [c for c in univ if c not in reach]
 
+    excl = documented_exclusions(lines)
+    orphans = [c for c in orphans if c not in excl]
+
     recs = failure_records(lines)
+    if RECORDS_LINES:
+        recs = failure_records(RECORDS_LINES)
     caught, missed = [], []
     for title, body in recs:
         # 「再発防止＝§X」以降を対象にする
@@ -88,21 +104,29 @@ def audit(path):
         elif not need: missed.append((title, [], 'no-clause-cited'))
         else: missed.append((title, sorted(need - reach), 'unreachable'))
 
-    return dict(path=path, n_clauses=len(univ), clauses=univ,
+    return dict(path=path, n_clauses=len(univ), clauses=univ, excluded=sorted(excl),
                 gate_reach=sorted(g), table_reach=sorted(t),
                 n_reach=len(reach), reach=sorted(reach),
                 orphans=orphans, n_records=len(recs),
                 caught=len(caught), missed=missed,
                 gate_only=sorted(g - t), table_only=sorted(t - g))
 
+RECORDS_LINES = None
+
 if __name__ == '__main__':
-    res = [audit(p) for p in sys.argv[1:]]
+    args = sys.argv[1:]
+    if '--records' in args:
+        i = args.index('--records')
+        RECORDS_LINES = load(args[i + 1])
+        args = args[:i] + args[i + 2:]
+    res = [audit(p) for p in args]
     for r in res:
         print("="*70)
         print(f"FILE: {r['path']}")
         print(f"  条項総数        : {r['n_clauses']}")
         print(f"  到達可能条項    : {r['n_reach']}  ({r['n_reach']*100//max(r['n_clauses'],1)}%)")
         print(f"  孤立条項({len(r['orphans'])}) : {', '.join(r['orphans']) if r['orphans'] else 'なし'}")
+        print(f"  明示除外({len(r['excluded'])}) : {', '.join(r['excluded']) if r['excluded'] else 'なし'}（理由が本文に記載されたもの）")
         print(f"  失敗記録        : {r['n_records']} 件 / 捕捉 {r['caught']} 件")
         for t, cl, why in r['missed']:
             print(f"    - 未捕捉: {t} [{why}] {cl}")
