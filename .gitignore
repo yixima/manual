@@ -3,3 +3,4 @@ __pycache__/
 .env
 metrics/compliance.jsonl
 metrics/.stopguard-*
+metrics/.terms-*
