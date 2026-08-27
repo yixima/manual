@@ -166,7 +166,7 @@ def main():
     except Exception:
         pass
 
-    lines = ["[出力契約の未充足を検出しました（マニュアル v16 §0-15）]",
+    lines = ["[出力契約の未充足を検出しました（マニュアル §0-15）]",
              "この応答は送信前に修正が必要です。"]
     lines += [f"  ・【{t}】{m}" for t, m in viol]
     lines.append("修正したうえで、同じ応答を出し直してください。")
