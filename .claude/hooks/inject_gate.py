@@ -32,36 +32,65 @@ GATE = """[汎用マニュアル v17 / 関門（毎ターン自動注入・環�
 日時：「今日」「現在」「最新」に依存する記述は、上の現在日時を基準にし、必要なら基準日を本文に明記する。
 迷ったら止める・弱める・質問する。「たぶん大丈夫」で送らない。"""
 
-# しきい値（L1 §0-5）
-MAX_TURNS, MAX_BYTES, MAX_FILE = 60, 2_000_000, 1_000_000
+# しきい値（L1 §0-5）。**これらは実測に基づく暫定値であり、設定で変更できる。**
+# 初版では 60往復/2MB としたが、481往復でも支障が出ないという実測により大きく引き上げた。
+# 二段構えにする理由＝一段目で作業を止めると、それ自体がマニュアル違反（§2-9）になるため。
+#   一段目（注意）：頭の片隅に置くだけ。**作業は止めない。申告もしない。**
+#   二段目（申告）：ユーザーへ申告し、引き継ぎを提案する。**それでも作業は続ける。**
+DEFAULTS = {
+    "notice_turns": 400, "notice_bytes": 5_000_000,
+    "report_turns": 800, "report_bytes": 15_000_000,
+    "max_single_file": 5_000_000,
+}
+
+def thresholds(cwd):
+    """.claude/manual-hooks.json の degradation セクションで上書きできる。"""
+    t = dict(DEFAULTS)
+    for d in (pathlib.Path(cwd) / '.claude', pathlib.Path.home() / '.claude'):
+        try:
+            cfg = json.loads((d / 'manual-hooks.json').read_text(encoding='utf-8'))
+            t.update(cfg.get('degradation', {}))
+            break
+        except Exception:
+            continue
+    return t
 
 def degradation(data):
-    warn = []
-    tp = data.get('transcript_path') or ''
+    cwd = pathlib.Path(data.get('cwd') or os.getcwd())
+    T = thresholds(cwd)
+    notice, report = [], []
     try:
-        p = pathlib.Path(tp)
+        p = pathlib.Path(data.get('transcript_path') or '')
         if p.exists():
             size = p.stat().st_size
             turns = sum(1 for _ in p.open(encoding='utf-8', errors='replace'))
-            if size > MAX_BYTES:
-                warn.append(f"会話の記録が {size/1_000_000:.1f}MB（しきい値 2MB）")
-            if turns > MAX_TURNS:
-                warn.append(f"往復が約 {turns} 回（しきい値 60）")
+            if size > T["report_bytes"]:
+                report.append(f"会話の記録が {size/1_000_000:.0f}MB（申告 {T['report_bytes']/1_000_000:.0f}MB）")
+            elif size > T["notice_bytes"]:
+                notice.append(f"記録 {size/1_000_000:.0f}MB")
+            if turns > T["report_turns"]:
+                report.append(f"往復が約 {turns} 回（申告 {T['report_turns']} 回）")
+            elif turns > T["notice_turns"]:
+                notice.append(f"往復 約{turns} 回")
     except Exception:
         pass
     try:
-        cwd = pathlib.Path(data.get('cwd') or os.getcwd())
         for d in ('dist', 'out', 'deliverables'):
             for f in (cwd / d).glob('*'):
-                if f.is_file() and f.stat().st_size > MAX_FILE:
-                    warn.append(f"{d}/{f.name} が {f.stat().st_size/1_000_000:.1f}MB（1MB 超はダウンロードが失敗しやすい）")
+                if f.is_file() and f.stat().st_size > T["max_single_file"]:
+                    report.append(f"{d}/{f.name} が {f.stat().st_size/1_000_000:.0f}MB"
+                                  f"（{T['max_single_file']/1_000_000:.0f}MB 超はダウンロードが失敗しやすい）")
     except Exception:
         pass
-    if not warn:
-        return ""
-    return ("\n[劣化の予兆・§0-5 自動検出] " + " ／ ".join(warn) +
-            "\n→ ユーザーが不調を訴える前に、自分から申告し、引き継ぎファイル（§10-5 の10章）の作成を提案すること。"
-            "\n→ 放置すると、応答が遅くなる・生成したファイルがダウンロードできなくなる・不正確な応答が混じる。")
+
+    if report:
+        return ("\n[劣化・§0-5 申告水準] " + " ／ ".join(report) +
+                "\n→ ユーザーが不調を訴える前に、自分から申告し、引き継ぎファイル（§10-5 の10章）の作成を提案する。"
+                "\n→ **ただし、これは作業を止める理由にはならない（§2-9）。依頼された作業は続けたまま、申告だけを添える。**")
+    if notice:
+        return ("\n[劣化・§0-5 注意水準] " + " ／ ".join(notice) +
+                "\n→ 頭の片隅に置くだけでよい。**申告も中断も不要。** 申告水準に達したら改めて通知される。")
+    return ""
 
 def now_line():
     """現在日時を毎ターン与える（L1 §3-7）。実行環境の時計を実測する。推測しない。"""

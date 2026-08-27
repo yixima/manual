@@ -91,11 +91,26 @@ check(all(VER in s for s in vers.values()), f'3ファイルすべてに {VER} �
 _d = set.intersection(*dates.values()) if all(dates.values()) else set()
 check(bool(_d), '3ファイルの発行日が一致する', str(dates))
 
+# 5. 短縮版が本体から再生成した内容と一致すること（手で書き写して版がずれる事故を防ぐ）
+_mini = DIST / f'L0_core_card_mini_{VER}.md'
+if _mini.exists():
+    # 検査は状態を変えない。一時ファイルへ再生成して突き合わせるだけにする。
+    import subprocess, tempfile, os
+    _tmp = tempfile.NamedTemporaryFile(suffix='.md', delete=False)
+    _tmp.close()
+    subprocess.run([sys.executable, 'tools/build_mini.py', '--out', _tmp.name], capture_output=True)
+    _same = pathlib.Path(_tmp.name).read_text(encoding='utf-8') == _mini.read_text(encoding='utf-8')
+    os.unlink(_tmp.name)
+    check(_same, '短縮版が本体と同期している',
+          '再生成すると内容が変わる＝本体を直したあと python3 tools/build_mini.py を実行していない')
+else:
+    check(False, '短縮版が存在する', f'{_mini.name} が無い。python3 tools/build_mini.py で生成すること')
+
 # 5. 旧版ファイルが dist/ に残っていないこと（版ずれの温床になる）
 _stale = [f.name for f in DIST.glob('L[012]_*.md') if VER not in f.name]
 check(not _stale, f'dist/ に旧版ファイルが残っていない', f'旧版: {_stale}')
 
-# 6. ファイル名の ASCII 安全性
+# 7. ファイル名の ASCII 安全性
 for p in DIST.glob('*'):
     check(bool(SAFE.match(p.name)), f'ファイル名 {p.name} が ASCII 安全', '非ASCIIを含む')
 
@@ -124,6 +139,13 @@ DIST.joinpath('DISTRIBUTION.md').write_text("""# 配布手順（この検査を�
 **L1（本編）と L2（記録）の置き場**
 - claude.ai：プロジェクトナレッジに添付する。
 - Claude Code：リポジトリに置き、`CLAUDE.md` から**パスで参照**する（`@` インポートは Cowork でスキップされるため、コアカードは必ず実体で貼る）。
+
+**Claude Code と Cowork（デスクトップ）は、1コマンドで済む**
+```
+python3 tools/install.py --dry-run   # 何が起きるか確認（何も書き換えない）
+python3 tools/install.py             # 実行。既存ファイルは退避してから追記・統合する
+```
+これで上の表の 4・5・6 が完了する。**残るのは 1（claude.ai）と 3（Cowork の設定欄）の貼り付けだけ。**
 
 **注意（一次資料で確認済み）**
 - Cowork は、作業ディレクトリ外を指す `@` インポートをスキップする。**コアカードを外部ファイル参照にしない。**

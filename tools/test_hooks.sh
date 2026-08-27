@@ -15,11 +15,26 @@ chk "正常終了" 0 $rc
 echo "$out" | grep -q "現在日時" && chk "現在日時が注入される" 0 0 || chk "現在日時が注入される" 0 1
 echo "$out" | grep -qE "[0-9]{4}-[0-9]{2}-[0-9]{2}" && chk "実測した日付が入っている" 0 0 || chk "実測した日付が入っている" 0 1
 chk "入力が空でも落ちない" 0 "$(echo '' | python3 .claude/hooks/inject_gate.py >/dev/null 2>&1; echo $?)"
-big=$(mktemp -d)/t.jsonl; python3 -c "
+big=$(mktemp -d)/t.jsonl
+python3 -c "
 import sys
-open(sys.argv[1],'w').write('x'*2_100_000)" "$big"
-echo "{\"cwd\":\"$PWD\",\"transcript_path\":\"$big\"}" | python3 .claude/hooks/inject_gate.py | grep -q "劣化の予兆" \
-  && chk "記録2MB超で劣化警告が出る" 0 0 || chk "記録2MB超で劣化警告が出る" 0 1
+open(sys.argv[1],'w').write(('{\"x\":1}\n')*450)" "$big"
+echo "{\"cwd\":\"$PWD\",\"transcript_path\":\"$big\"}" | python3 .claude/hooks/inject_gate.py | grep -q "注意水準" \
+  && chk "注意水準（往復400超）で注意だけが出る" 0 0 || chk "注意水準（往復400超）で注意だけが出る" 0 1
+echo "{\"cwd\":\"$PWD\",\"transcript_path\":\"$big\"}" | python3 .claude/hooks/inject_gate.py | grep -q "申告も中断も不要" \
+  && chk "注意水準では中断を促さない（過剰な中断の防止）" 0 0 || chk "注意水準では中断を促さない（過剰な中断の防止）" 0 1
+python3 -c "
+import sys
+open(sys.argv[1],'w').write(('{\"x\":1}\n')*900)" "$big"
+echo "{\"cwd\":\"$PWD\",\"transcript_path\":\"$big\"}" | python3 .claude/hooks/inject_gate.py | grep -q "申告水準" \
+  && chk "申告水準（往復800超）で申告を促す" 0 0 || chk "申告水準（往復800超）で申告を促す" 0 1
+echo "{\"cwd\":\"$PWD\",\"transcript_path\":\"$big\"}" | python3 .claude/hooks/inject_gate.py | grep -q "作業を止める理由にはならない" \
+  && chk "申告水準でも作業の中断を促さない" 0 0 || chk "申告水準でも作業の中断を促さない" 0 1
+python3 -c "
+import sys
+open(sys.argv[1],'w').write(('{\"x\":1}\n')*100)" "$big"
+echo "{\"cwd\":\"$PWD\",\"transcript_path\":\"$big\"}" | python3 .claude/hooks/inject_gate.py | grep -q "劣化" \
+  && chk "しきい値未満では何も出ない" 0 1 || chk "しきい値未満では何も出ない" 0 0
 
 echo "── check_output.py ──"
 run() { echo "$1" | python3 .claude/hooks/check_output.py >/dev/null 2>&1; echo $?; }

@@ -8,5 +8,13 @@
     "unexplained_incomplete": true,
     "undefined_jargon": true,
     "undated_time_reference": true
+  },
+  "_degradation_comment": "劣化の判定値。実測に合わせて自由に変えてよい。notice=注意水準（何もしなくてよい）、report=申告水準（申告するが作業は止めない）。",
+  "degradation": {
+    "notice_turns": 400,
+    "notice_bytes": 5000000,
+    "report_turns": 800,
+    "report_bytes": 15000000,
+    "max_single_file": 5000000
   }
 }

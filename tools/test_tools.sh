@@ -39,6 +39,40 @@ pathlib.Path(sys.argv[2]).write_text(t, encoding='utf-8')
 PY
 python3 tools/make_handover.py --check "$TMP/h2.md" > /dev/null 2>&1; chk "全章を埋めれば合格する" 0 $?
 
+echo "── build_mini.py ──"
+python3 tools/build_mini.py > /dev/null 2>&1; chk "短縮版を生成できる" 0 $?
+[ -f dist/L0_core_card_mini_v17.md ] && chk "短縮版が出力される" 0 0 || chk "短縮版が出力される" 0 1
+grep -q "関門" dist/L0_core_card_mini_v17.md && chk "短縮版に関門が含まれる" 0 0 || chk "短縮版に関門が含まれる" 0 1
+
+echo "── install.py ──"
+FH="$TMP/fakehome"; mkdir -p "$FH/.claude"
+printf '# 既存メモ\n\n消えてはいけない内容。\n' > "$FH/.claude/CLAUDE.md"
+printf '{"permissions":{"allow":["Bash(ls:*)"]},"hooks":{"Stop":[{"matcher":"*","hooks":[{"type":"command","command":"echo mine"}]}]}}' > "$FH/.claude/settings.json"
+python3 tools/install.py --home "$FH" --dry-run > /dev/null 2>&1; chk "試行モードが動く" 0 $?
+grep -q '消えてはいけない内容' "$FH/.claude/CLAUDE.md" && chk "試行モードは何も書き換えない" 0 0 || chk "試行モードは何も書き換えない" 0 1
+python3 tools/install.py --home "$FH" > /dev/null 2>&1; chk "本実行が動く" 0 $?
+grep -q '消えてはいけない内容' "$FH/.claude/CLAUDE.md" && chk "既存の CLAUDE.md を消さない" 0 0 || chk "既存の CLAUDE.md を消さない" 0 1
+python3 - "$FH" <<'PYX'
+import json, sys, pathlib
+d = json.load(open(pathlib.Path(sys.argv[1]) / '.claude' / 'settings.json'))
+ok = ('allow' in d.get('permissions', {})
+      and any(h['command'] == 'echo mine' for g in d['hooks']['Stop'] for h in g['hooks'])
+      and sorted(d['hooks']) == ['PreToolUse', 'Stop', 'UserPromptSubmit'])
+sys.exit(0 if ok else 1)
+PYX
+chk "既存 settings を保持しつつフックを登録する" 0 $?
+python3 tools/install.py --home "$FH" > /dev/null 2>&1
+python3 - "$FH" <<'PYX'
+import json, sys, pathlib
+h = pathlib.Path(sys.argv[1]) / '.claude'
+d = json.load(open(h / 'settings.json'))
+n = sum(len(g['hooks']) for g in d['hooks']['Stop'])
+dup = (h / 'CLAUDE.md').read_text(encoding='utf-8').count('BEGIN 汎用マニュアル')
+sys.exit(0 if (n == 2 and dup == 1) else 1)
+PYX
+chk "2回実行しても二重登録されない（冪等性）" 0 $?
+[ -x "$FH/.claude/hooks/manual/check_output.py" ] && chk "フックが実行可能な形で配置される" 0 0 || chk "フックが実行可能な形で配置される" 0 1
+
 echo "── score_session.py ──"
 python3 tools/score_session.py "$TMP/none.jsonl" > /dev/null 2>&1; chk "記録が無ければ異常終了（異常系）" 1 $?
 printf '{"ts":"t","session":"a","contract":{"has_label":true,"has_state_line":true,"has_backcheck":false},"violations":[]}\n' > "$TMP/m.jsonl"

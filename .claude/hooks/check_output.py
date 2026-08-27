@@ -14,18 +14,36 @@
 """
 import json, sys, os, re, hashlib, datetime, pathlib
 
+def _candidates(cwd, name):
+    """設定・用語集を、プロジェクト内 → ユーザー共通（~/.claude）の順に探す。
+    全プロジェクト共通で導入した場合、設定はホーム側に置かれるため。"""
+    return [pathlib.Path(cwd) / '.claude' / name,
+            pathlib.Path.home() / '.claude' / name]
+
+def metrics_dir(cwd):
+    """記録の置き場。環境変数 CLAUDE_MANUAL_METRICS で上書きできる。
+    プロジェクト内に設定があればプロジェクトの metrics/、無ければ
+    ~/.claude/manual-metrics/ に置く（共通導入時に各プロジェクトを汚さないため）。"""
+    env = os.environ.get('CLAUDE_MANUAL_METRICS')
+    if env:
+        return pathlib.Path(env).expanduser()
+    if (pathlib.Path(cwd) / '.claude' / 'manual-hooks.json').exists():
+        return pathlib.Path(cwd) / 'metrics'
+    return pathlib.Path.home() / '.claude' / 'manual-metrics'
+
 def load_cfg(cwd):
-    p = pathlib.Path(cwd) / '.claude' / 'manual-hooks.json'
     cfg = {"enforce": True, "rules": {"declaration_without_action": True,
                                       "missing_state_line": True,
                                       "unsourced_verified_label": True,
                                       "unexplained_incomplete": True,
                                       "undefined_jargon": True,
                                       "undated_time_reference": True}}
-    try:
-        cfg.update(json.loads(p.read_text(encoding='utf-8')))
-    except Exception:
-        pass
+    for cand in _candidates(cwd, 'manual-hooks.json'):
+        try:
+            cfg.update(json.loads(cand.read_text(encoding='utf-8')))
+            break
+        except Exception:
+            continue
     return cfg
 
 # ── 判定ルール ──────────────────────────────────────────────
@@ -49,11 +67,13 @@ RE_REASON = re.compile(r'(質問|お伺い|ご判断|判断が必要|承認|許�
 
 # R5【型J】専門用語を初出で説明していない（L1 §2-13）
 def jargon_terms(cwd):
-    try:
-        g = json.loads((pathlib.Path(cwd) / '.claude' / 'glossary.json').read_text(encoding='utf-8'))
-        return [t for t in g.get('terms', []) if t]
-    except Exception:
-        return []
+    for cand in _candidates(cwd, 'glossary.json'):
+        try:
+            g = json.loads(cand.read_text(encoding='utf-8'))
+            return [t for t in g.get('terms', []) if t]
+        except Exception:
+            continue
+    return []
 
 def unexplained(msg, term):
     """その用語が、この応答の中で一度も説明されずに使われていれば True。"""
@@ -109,7 +129,7 @@ def evaluate(msg, cfg, cwd='.', session='x'):
 
 def seen_terms(cwd, session):
     """このセッションで既に説明済みの用語（初出判定のため）。"""
-    p = pathlib.Path(cwd) / 'metrics' / f'.terms-{session}'
+    p = metrics_dir(cwd) / f'.terms-{session}'
     try:
         return set(p.read_text(encoding='utf-8').split())
     except Exception:
@@ -119,8 +139,8 @@ def add_seen(cwd, session, terms):
     if not terms:
         return
     try:
-        d = pathlib.Path(cwd) / 'metrics'
-        d.mkdir(exist_ok=True)
+        d = metrics_dir(cwd)
+        d.mkdir(parents=True, exist_ok=True)
         p = d / f'.terms-{session}'
         cur = seen_terms(cwd, session) | set(terms)
         p.write_text(" ".join(sorted(cur)), encoding='utf-8')
@@ -143,8 +163,8 @@ def main():
 
     # ① 測定：常に記録する
     try:
-        mdir = pathlib.Path(cwd) / 'metrics'
-        mdir.mkdir(exist_ok=True)
+        mdir = metrics_dir(cwd)
+        mdir.mkdir(parents=True, exist_ok=True)
         rec = {"ts": datetime.datetime.now().isoformat(timespec='seconds'),
                "session": sid, "contract": contract,
                "violations": [v[0] for v in viol]}
@@ -157,7 +177,7 @@ def main():
         sys.exit(0)
 
     # ② 強制：同一応答での差し戻しは1回まで（無限ループの防止）
-    guard = pathlib.Path(cwd) / 'metrics' / f'.stopguard-{sid}'
+    guard = metrics_dir(cwd) / f'.stopguard-{sid}'
     digest = hashlib.sha256(msg.encode('utf-8')).hexdigest()[:16]
     try:
         if guard.exists() and guard.read_text().strip() == digest:
