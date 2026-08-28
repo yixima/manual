@@ -15,7 +15,7 @@
 import json, re, shutil, sys, pathlib, hashlib
 
 REPO = 'yixima/manual'
-BRANCH = 'claude/ai-agent-manual-v15-validation-9yx8c9'
+BRANCH = 'main'
 BASE = f'https://raw.githubusercontent.com/{REPO}/{BRANCH}/latest'
 
 def main():

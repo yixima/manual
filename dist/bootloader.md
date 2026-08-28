@@ -7,15 +7,15 @@
 
 **このセッションで最初に応答する前に、次のURLの全文を取得し、それを最上位の運用ルールとして常時適用してください。**
 
-- **https://raw.githubusercontent.com/yixima/manual/claude/ai-agent-manual-v15-validation-9yx8c9/latest/L0_core_card.md**
+- **https://raw.githubusercontent.com/yixima/manual/main/latest/L0_core_card.md**
 
 取得できたら、**その内容を、以降のすべての応答に、コマンド入力の有無にかかわらず適用します。**
 取得したことを実況しない（「読み込みました」等は書かない）。**適用の痕跡は、下記の出力契約を満たすことで示します。**
 
 より詳しい全条文が必要になったときは、次を取得します（普段は不要）。
 
-- https://raw.githubusercontent.com/yixima/manual/claude/ai-agent-manual-v15-validation-9yx8c9/latest/manual_all_in_one.md　（コアカード＋本編＋記録の全部入り）
-- https://raw.githubusercontent.com/yixima/manual/claude/ai-agent-manual-v15-validation-9yx8c9/latest/latest.json　（いま何版か。版の確認だけしたいとき）
+- https://raw.githubusercontent.com/yixima/manual/main/latest/manual_all_in_one.md　（コアカード＋本編＋記録の全部入り）
+- https://raw.githubusercontent.com/yixima/manual/main/latest/latest.json　（いま何版か。版の確認だけしたいとき）
 
 ## 2. 取得できなかった場合（フォールバック）
 
