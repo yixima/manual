@@ -32,15 +32,31 @@ GATE = """[汎用マニュアル v17 / 関門（毎ターン自動注入・環�
 日時：「今日」「現在」「最新」に依存する記述は、上の現在日時を基準にし、必要なら基準日を本文に明記する。
 迷ったら止める・弱める・質問する。「たぶん大丈夫」で送らない。"""
 
-# しきい値（L1 §0-5）。**これらは実測に基づく暫定値であり、設定で変更できる。**
-# 初版では 60往復/2MB としたが、481往復でも支障が出ないという実測により大きく引き上げた。
-# 二段構えにする理由＝一段目で作業を止めると、それ自体がマニュアル違反（§2-9）になるため。
-#   一段目（注意）：頭の片隅に置くだけ。**作業は止めない。申告もしない。**
-#   二段目（申告）：ユーザーへ申告し、引き継ぎを提案する。**それでも作業は続ける。**
+# ── 負荷スコア（L1 §0-5）──────────────────────────────────
+# **往復数は代理指標にすぎない。** 実際に効くのは「セッションが抱えた総データ量」であり、
+# 中でも**バイナリ成果物（スライド・表計算・PDF・画像）は、テキストよりはるかに重い**。
+# 理由＝圧縮された中身が展開されて読み込まれ、プレビュー生成や再読込で何度も文脈に載るため。
+#
+# 実測の基準点（2026-08-28）：
+#   往復864回／会話の記録2.5MB／生成物1.4MB（すべてテキスト）→ ユーザー報告「感度は悪くない」
+#   → スコア約3.9。したがって注意水準はこれより十分上に置く。
+#
+# 負荷スコア（MB相当）＝ 会話の記録(MB) + テキスト成果物(MB) + バイナリ成果物(MB)×重み
+BINARY_EXT = {'.pptx', '.potx', '.xlsx', '.xlsm', '.docx', '.pdf', '.png', '.jpg', '.jpeg',
+              '.gif', '.webp', '.mp4', '.mov', '.zip', '.key', '.numbers', '.pages'}
+
 DEFAULTS = {
-    "notice_turns": 400, "notice_bytes": 5_000_000,
-    "report_turns": 800, "report_bytes": 15_000_000,
+    # 負荷スコアのしきい値（主指標）
+    "notice_score": 8.0,      # 注意水準：頭の片隅に置くだけ。申告も中断も不要
+    "report_score": 20.0,     # 申告水準：申告する。ただし作業は止めない
+    # バイナリ成果物の重み（テキストの何倍として数えるか）。実測に合わせて調整する
+    "binary_weight": 3.0,
+    # 往復数（補助指標。単独では判断しない）
+    "notice_turns": 600, "report_turns": 1200,
+    # 単一ファイルの上限（ダウンロード失敗の防止）
     "max_single_file": 5_000_000,
+    # 成果物を探す場所
+    "output_dirs": ["dist", "out", "deliverables", "outputs", "artifacts", "slides", "docs"],
 }
 
 def thresholds(cwd):
@@ -55,33 +71,67 @@ def thresholds(cwd):
             continue
     return t
 
+def artifact_load(cwd, T):
+    """成果物の量を測る。バイナリは重みを掛ける。戻り値＝(スコア寄与MB, 内訳, 大きすぎるファイル)"""
+    text_mb = bin_mb = 0.0
+    n_bin = 0
+    oversize = []
+    for d in T["output_dirs"]:
+        base = pathlib.Path(cwd) / d
+        if not base.is_dir():
+            continue
+        for f in base.rglob('*'):
+            try:
+                if not f.is_file():
+                    continue
+                size = f.stat().st_size
+                if size > T["max_single_file"]:
+                    oversize.append((f"{d}/{f.name}", size))
+                if f.suffix.lower() in BINARY_EXT:
+                    bin_mb += size / 1_000_000
+                    n_bin += 1
+                else:
+                    text_mb += size / 1_000_000
+            except Exception:
+                continue
+    return text_mb + bin_mb * T["binary_weight"], (text_mb, bin_mb, n_bin), oversize
+
 def degradation(data):
+    """負荷スコアで判定する。往復数は補助指標であり、単独では申告水準に達しない。"""
     cwd = pathlib.Path(data.get('cwd') or os.getcwd())
     T = thresholds(cwd)
-    notice, report = [], []
+
+    talk_mb, turns = 0.0, 0
     try:
         p = pathlib.Path(data.get('transcript_path') or '')
         if p.exists():
-            size = p.stat().st_size
+            talk_mb = p.stat().st_size / 1_000_000
             turns = sum(1 for _ in p.open(encoding='utf-8', errors='replace'))
-            if size > T["report_bytes"]:
-                report.append(f"会話の記録が {size/1_000_000:.0f}MB（申告 {T['report_bytes']/1_000_000:.0f}MB）")
-            elif size > T["notice_bytes"]:
-                notice.append(f"記録 {size/1_000_000:.0f}MB")
-            if turns > T["report_turns"]:
-                report.append(f"往復が約 {turns} 回（申告 {T['report_turns']} 回）")
-            elif turns > T["notice_turns"]:
-                notice.append(f"往復 約{turns} 回")
     except Exception:
         pass
-    try:
-        for d in ('dist', 'out', 'deliverables'):
-            for f in (cwd / d).glob('*'):
-                if f.is_file() and f.stat().st_size > T["max_single_file"]:
-                    report.append(f"{d}/{f.name} が {f.stat().st_size/1_000_000:.0f}MB"
-                                  f"（{T['max_single_file']/1_000_000:.0f}MB 超はダウンロードが失敗しやすい）")
-    except Exception:
-        pass
+
+    art_score, (text_mb, bin_mb, n_bin), oversize = artifact_load(cwd, T)
+    score = talk_mb + art_score
+
+    detail = f"負荷スコア {score:.1f}（会話 {talk_mb:.1f}MB"
+    if text_mb:
+        detail += f" ＋ テキスト成果物 {text_mb:.1f}MB"
+    if bin_mb:
+        detail += f" ＋ バイナリ成果物 {bin_mb:.1f}MB×{T['binary_weight']:g}＝{bin_mb * T['binary_weight']:.1f}（{n_bin}件）"
+    detail += f"）／往復 約{turns} 回"
+
+    report, notice = [], []
+    if score >= T["report_score"]:
+        report.append(f"{detail}　※申告水準 {T['report_score']:g}")
+    elif score >= T["notice_score"]:
+        notice.append(f"{detail}　※注意水準 {T['notice_score']:g}")
+    if turns >= T["report_turns"]:
+        report.append(f"往復が約 {turns} 回（申告 {T['report_turns']} 回）")
+    elif turns >= T["notice_turns"] and not notice and not report:
+        notice.append(f"往復 約{turns} 回（補助指標）")
+    for name, size in oversize[:3]:
+        report.append(f"{name} が {size/1_000_000:.0f}MB"
+                      f"（{T['max_single_file']/1_000_000:.0f}MB 超はダウンロードが失敗しやすい）")
 
     if report:
         return ("\n[劣化・§0-5 申告水準] " + " ／ ".join(report) +

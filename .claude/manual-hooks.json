@@ -9,12 +9,22 @@
     "undefined_jargon": true,
     "undated_time_reference": true
   },
-  "_degradation_comment": "劣化の判定値。実測に合わせて自由に変えてよい。notice=注意水準（何もしなくてよい）、report=申告水準（申告するが作業は止めない）。",
+  "_degradation_comment": "劣化の判定値。実測に合わせて自由に変えてよい。主指標は負荷スコア（会話の記録MB ＋ テキスト成果物MB ＋ バイナリ成果物MB×binary_weight）。往復数は補助指標であり、単独では申告水準に達しない。基準点＝往復864回・会話2.5MB・テキスト成果物1.4MB でスコア約3.9、体感良好（2026-08-28 実測）。",
   "degradation": {
-    "notice_turns": 400,
-    "notice_bytes": 5000000,
-    "report_turns": 800,
-    "report_bytes": 15000000,
-    "max_single_file": 5000000
+    "notice_score": 8.0,
+    "report_score": 20.0,
+    "binary_weight": 3.0,
+    "notice_turns": 600,
+    "report_turns": 1200,
+    "max_single_file": 5000000,
+    "output_dirs": [
+      "dist",
+      "out",
+      "deliverables",
+      "outputs",
+      "artifacts",
+      "slides",
+      "docs"
+    ]
   }
 }
