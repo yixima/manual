@@ -55,7 +55,22 @@ python3 tools/build_dist.py                                                     
 ./tools/test_tools.sh                                                                      # スクリプトの起動検証（27件）
 ```
 
-## 配布（あなたの作業は2分で終わります）
+## 配布（一度きり。以後は貼り直し不要）
+
+**`dist/bootloader.md`（54行）を2箇所に貼るだけ。** 中身は固定URLから取得されるため、**版を上げても貼り直す必要がありません。**
+
+1. **claude.ai → 設定 →「Instructions for Claude」**
+2. **Cowork → 設定 → Cowork →「Global instructions」**
+
+- **進行中のセッション**：そのセッションで **「マニュアル更新」** と打つだけ。添付は不要。
+- **Claude Code**：`python3 tools/install.py` を一度実行すれば、以後は SessionStart フックが自動で `git pull` して最新化します。**操作は不要。**
+
+固定URL（版番号を含まないため、URLが変わりません）
+- コアカード：`latest/L0_core_card.md`
+- 全部入り：`latest/manual_all_in_one.md`
+- 版の確認：`latest/latest.json`
+
+## 全文を直接貼る方式（ブートローダーが使えない場合）
 
 ```bash
 python3 tools/install.py --dry-run   # 何が起きるか確認する（何も書き換えない）

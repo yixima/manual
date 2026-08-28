@@ -4,7 +4,10 @@
       {
         "matcher": "*",
         "hooks": [
-          { "type": "command", "command": "python3 ${CLAUDE_PROJECT_DIR}/.claude/hooks/inject_gate.py" }
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PROJECT_DIR}/.claude/hooks/inject_gate.py"
+          }
         ]
       }
     ],
@@ -12,7 +15,10 @@
       {
         "matcher": "*",
         "hooks": [
-          { "type": "command", "command": "python3 ${CLAUDE_PROJECT_DIR}/.claude/hooks/check_output.py" }
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PROJECT_DIR}/.claude/hooks/check_output.py"
+          }
         ]
       }
     ],
@@ -20,7 +26,21 @@
       {
         "matcher": "Write|Edit|NotebookEdit|Bash",
         "hooks": [
-          { "type": "command", "command": "python3 ${CLAUDE_PROJECT_DIR}/.claude/hooks/guard_delivery.py" }
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PROJECT_DIR}/.claude/hooks/guard_delivery.py"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PROJECT_DIR}/.claude/hooks/auto_update.py"
+          }
         ]
       }
     ]

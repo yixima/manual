@@ -119,6 +119,21 @@ if _aio.exists():
 else:
     check(False, '全部入り1ファイルが存在する', f'{_aio.name} が無い。python3 tools/build_allinone.py で生成すること')
 
+# 5.7 latest/（版番号を含まない固定URL用）が最新版と一致していること
+_lat = pathlib.Path('latest')
+if (_lat / 'L0_core_card.md').exists():
+    _same = (_lat / 'L0_core_card.md').read_text(encoding='utf-8') == txt['L0']
+    check(_same, 'latest/L0_core_card.md が最新のコアカードと一致している',
+          'コアカードを直したあと python3 tools/build_latest.py を実行していない')
+    import json as _json
+    try:
+        _m = _json.loads((_lat / 'latest.json').read_text(encoding='utf-8'))
+        check(_m.get('version') == VER, f'latest.json の版が {VER} を指している', f"version={_m.get('version')}")
+    except Exception as _e:
+        check(False, 'latest.json が読める', str(_e))
+else:
+    check(False, 'latest/ が存在する', 'python3 tools/build_latest.py で生成すること')
+
 # 5. 旧版ファイルが dist/ に残っていないこと（版ずれの温床になる）
 _stale = [f.name for f in DIST.glob('L[012]_*.md') if VER not in f.name]
 check(not _stale, f'dist/ に旧版ファイルが残っていない', f'旧版: {_stale}')
@@ -140,7 +155,37 @@ DIST.joinpath('DISTRIBUTION.md').write_text(f"""# 配布手順（この検査を
 **配布は一方向である。** 単一ソース（本リポジトリ）→ この dist/ → 各配布先。
 **配布先で直接編集しない。** 編集はリポジトリで行い、再生成して再配布する（§0-7 版ずれの構造的排除）。
 
-## A. これから始めるセッションに効かせる（初回だけ・6箇所）
+## 【推奨】ブートローダー方式（貼るのは一度きり・更新時の貼り直しが不要）
+
+**設定欄に貼るのは `bootloader.md`（54行）だけ。** 中身は固定URLから取得されるため、
+**版を上げても貼り直す必要がない。**
+
+| # | 配布先 | 貼るもの | 効く範囲 |
+|---|---|---|---|
+| 1 | claude.ai → 設定 →「Instructions for Claude」 | **`bootloader.md` の全文（一度だけ）** | すべての会話・すべてのプロジェクト |
+| 2 | Cowork → 設定 → Cowork →「Global instructions」 | 同上（一度だけ） | すべての Cowork セッション |
+
+**更新時にすることは、リポジトリを更新するだけ。** 各セッションは開始時に固定URLから最新を取得する。
+
+- 固定URL（版番号を含まない・中身だけが変わる）
+  - コアカード：`latest/L0_core_card.md`
+  - 全部入り：`latest/manual_all_in_one.md`
+  - 版の確認：`latest/latest.json`
+
+**進行中のセッションを最新にするには、そのセッションで「マニュアル更新」と打つだけ。**
+ファイルを添付し直す必要はない。
+
+**Claude Code は完全に自動である。** SessionStart フックが毎回 `git pull` して、
+コアカードが変わっていれば `~/.claude/CLAUDE.md` を自動で差し替える。**利用者の操作は不要。**
+
+### 限界（隠さない）
+- URLの取得ができない環境では、ブートローダーに内蔵したフォールバック（関門9項＋出力契約）だけが働く。
+  **その場合は必ず申告される。**
+- **URLを管理する者がルールを決める。** このURLは、必ず自分の管理下にあるものだけを指すこと。
+
+---
+
+## A. 全文を直接貼る方式（ブートローダーが使えない場合）
 
 | # | 配布先 | 貼るもの | 効く範囲 |
 |---|---|---|---|

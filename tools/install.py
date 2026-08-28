@@ -59,10 +59,10 @@ def install_card(home, card, dry):
 
 def install_hooks(home, repo, dry):
     hdir = home / '.claude' / 'hooks' / 'manual'
-    print(f"  2. {hdir}/  … フック3本を配置")
+    print(f"  2. {hdir}/  … フック4本を配置")
     if not dry:
         hdir.mkdir(parents=True, exist_ok=True)
-        for f in ('inject_gate.py', 'check_output.py', 'guard_delivery.py'):
+        for f in ('inject_gate.py', 'check_output.py', 'guard_delivery.py', 'auto_update.py'):
             shutil.copy2(repo / '.claude' / 'hooks' / f, hdir / f)
             (hdir / f).chmod(0o755)
     for f in ('glossary.json', 'manual-hooks.json'):
@@ -84,6 +84,7 @@ def install_hooks(home, repo, dry):
             sys.exit(1)
     hooks = cur.setdefault('hooks', {})
     wanted = {
+        'SessionStart': ('*', f'python3 {hdir}/auto_update.py'),
         'UserPromptSubmit': ('*', f'python3 {hdir}/inject_gate.py'),
         'Stop': ('*', f'python3 {hdir}/check_output.py'),
         'PreToolUse': ('Write|Edit|NotebookEdit|Bash', f'python3 {hdir}/guard_delivery.py'),

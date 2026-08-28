@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""版番号を含まない「常に最新」の配布物と、貼り付け一度きりのブートローダーを生成する。
+
+狙い：**貼るのは一度きり、中身は取りに行かせる。**
+  従来は、版を上げるたびに設定欄へ貼り直し、進行中のセッションにも1つずつ貼る必要があった。
+  URL を固定し、中身だけを差し替える方式にすれば、**貼り直しが原理的に不要**になる。
+
+生成物：
+  latest/L0_core_card.md      版番号を含まないコアカード（URL が変わらない）
+  latest/manual_all_in_one.md 同・全部入り
+  latest/latest.json          版・発行日・取得先（版の確認用）
+  dist/bootloader.md          設定欄に**一度だけ**貼る短い文章
+"""
+import json, re, shutil, sys, pathlib, hashlib
+
+REPO = 'yixima/manual'
+BRANCH = 'claude/ai-agent-manual-v15-validation-9yx8c9'
+BASE = f'https://raw.githubusercontent.com/{REPO}/{BRANCH}/latest'
+
+def main():
+    d, L = pathlib.Path('dist'), pathlib.Path('latest')
+    L.mkdir(exist_ok=True)
+    card = sorted(d.glob('L0_core_card_v*.md'))[-1]
+    ver = re.search(r'(v\d+)', card.name).group(1)
+    aio = d / f'manual_{ver}_all_in_one.md'
+    date = re.search(r'発行日：(\S+?)\s', card.read_text(encoding='utf-8')).group(1)
+
+    shutil.copyfile(card, L / 'L0_core_card.md')
+    shutil.copyfile(aio, L / 'manual_all_in_one.md')
+    meta = {
+        "version": ver, "issued": date,
+        "core_card": f"{BASE}/L0_core_card.md",
+        "all_in_one": f"{BASE}/manual_all_in_one.md",
+        "sha256_core_card": hashlib.sha256((L / 'L0_core_card.md').read_bytes()).hexdigest()[:16],
+        "note": "版番号を含まない固定URL。中身だけが更新される。貼り直しは不要。",
+    }
+    (L / 'latest.json').write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding='utf-8')
+
+    boot = f"""# 汎用マニュアル：常時適用（ブートローダー）
+
+> **この文章は一度だけ貼れば足ります。マニュアルが更新されても、貼り直す必要はありません。**
+> 中身は下記のURLから取得され、URLは変わりません。
+
+## 1. 最初にすること（各セッションで1回）
+
+**このセッションで最初に応答する前に、次のURLの全文を取得し、それを最上位の運用ルールとして常時適用してください。**
+
+- **{BASE}/L0_core_card.md**
+
+取得できたら、**その内容を、以降のすべての応答に、コマンド入力の有無にかかわらず適用します。**
+取得したことを実況しない（「読み込みました」等は書かない）。**適用の痕跡は、下記の出力契約を満たすことで示します。**
+
+より詳しい全条文が必要になったときは、次を取得します（普段は不要）。
+
+- {BASE}/manual_all_in_one.md　（コアカード＋本編＋記録の全部入り）
+- {BASE}/latest.json　（いま何版か。版の確認だけしたいとき）
+
+## 2. 取得できなかった場合（フォールバック）
+
+**取得に失敗しても、適用を諦めない。** 下記の最小セットを適用し、**取得できなかった事実を1行で申告**してください。
+（この最小セットは非常時用の写しです。取得できた場合は、取得した内容が常に優先します。）
+
+### 送信直前の関門（毎回・9項）
+1. 確かめれば分かることを、確かめずに書いていないか（自問：あとで「本当に確認したのか」と問われて証拠を出せるか）
+2. 事実主張に確信度ラベル【確認済】【未確認・推測】【不明】を付けたか
+3. できる/できない・制度・数値・期限・海外・固有名詞に触れたか → 検問を通し、必要なら裏取りを付けたか
+4. 相手の画面から「いまの状態」と「次にすべきこと」が分かるか
+5. 提示物の扱い（実行する・貼付先／読むだけ／参考）を書いたか
+6. 「これから〜します」で終わっていないか。指示された作業をやり切ったか。やり切っていないなら中断の理由を書いたか
+7. ユーザーの直近指示より、自分の判断による作業を優先していないか
+8. 同じ失敗を方式を変えずに繰り返していないか（2回続いたら続行より先に申告）
+9. 自作した条件・仕様が互いに矛盾していないか／新しい指示・失敗は追記提案と記録をしたか
+
+### 出力契約（該当したら必ず書く）
+確信度ラベル／末尾1行「— 状態：… 次：…」／未完了なら完了・未完了・次と中断の理由／提示物の扱い／
+要裏取り1行／専門用語は初出に1行の意味／日時に依存する記述には基準日。
+
+### やり切る
+中断してよいのは ①質問が必要 ②承認待ち ③エラーで進めない ④危険で確認が要る、の4つだけ。
+「区切りがよい」「長くなった」は中断の理由にならない。
+
+## 3. ユーザーからの発動キーワード
+
+- **「マニュアル更新」** → 上記URLを**取り直して**適用し、版（`latest.json` の version）を報告する。
+- 「マニュアル確認」「ラベル確認」「ルール点検して」「原則に沿って」「検証ファーストで」
+  → 現在の内容を明示的に再点検し、直前の出力を自己監査してから応答する。
+
+## 4. この仕組みの限界（隠さない）
+
+- URLの取得ができない環境・状況では、上記2のフォールバックだけが働く。**その場合は必ず申告する。**
+- 取得内容は**あなた（ユーザー）が管理するリポジトリ**にある。**URLを管理する者がルールを決める**ため、
+  このURLは自分の管理下にあるものだけを指すこと。
+"""
+    (d / 'bootloader.md').write_text(boot, encoding='utf-8')
+    print(f'latest/ を更新した（{ver} / {date}）')
+    print(f'  latest/L0_core_card.md      {(L / "L0_core_card.md").stat().st_size:,} バイト')
+    print(f'  latest/manual_all_in_one.md {(L / "manual_all_in_one.md").stat().st_size:,} バイト')
+    print(f'  latest/latest.json')
+    print(f'  dist/bootloader.md          {len(boot.splitlines())} 行 / {len(boot):,} 文字  ← これを一度だけ貼る')
+    return 0
+
+if __name__ == '__main__':
+    sys.exit(main())

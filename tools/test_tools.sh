@@ -57,7 +57,7 @@ import json, sys, pathlib
 d = json.load(open(pathlib.Path(sys.argv[1]) / '.claude' / 'settings.json'))
 ok = ('allow' in d.get('permissions', {})
       and any(h['command'] == 'echo mine' for g in d['hooks']['Stop'] for h in g['hooks'])
-      and sorted(d['hooks']) == ['PreToolUse', 'Stop', 'UserPromptSubmit'])
+      and sorted(d['hooks']) == ['PreToolUse', 'SessionStart', 'Stop', 'UserPromptSubmit'])
 sys.exit(0 if ok else 1)
 PYX
 chk "既存 settings を保持しつつフックを登録する" 0 $?
@@ -72,6 +72,25 @@ sys.exit(0 if (n == 2 and dup == 1) else 1)
 PYX
 chk "2回実行しても二重登録されない（冪等性）" 0 $?
 [ -x "$FH/.claude/hooks/manual/check_output.py" ] && chk "フックが実行可能な形で配置される" 0 0 || chk "フックが実行可能な形で配置される" 0 1
+
+echo "── build_latest.py（固定URL用）──"
+python3 tools/build_latest.py > /dev/null 2>&1; chk "生成できる" 0 $?
+[ -f latest/L0_core_card.md ] && chk "版番号を含まないコアカードが出る" 0 0 || chk "版番号を含まないコアカードが出る" 0 1
+[ -f dist/bootloader.md ] && chk "ブートローダーが出る" 0 0 || chk "ブートローダーが出る" 0 1
+python3 -c "
+import json,pathlib,sys
+m=json.loads(pathlib.Path('latest/latest.json').read_text(encoding='utf-8'))
+sys.exit(0 if m['version'].startswith('v') and m['core_card'].startswith('https://') else 1)"
+chk "latest.json に版と取得先が入っている" 0 $?
+grep -q "マニュアル更新" dist/bootloader.md && chk "更新用の発動キーワードが載っている" 0 0 || chk "更新用の発動キーワードが載っている" 0 1
+grep -q "関門" dist/bootloader.md && chk "取得失敗時のフォールバックが載っている" 0 0 || chk "取得失敗時のフォールバックが載っている" 0 1
+[ "$(wc -l < dist/bootloader.md)" -lt 80 ] && chk "ブートローダーが80行未満（貼りやすさ）" 0 0 || chk "ブートローダーが80行未満（貼りやすさ）" 0 1
+
+echo "── auto_update.py（自動更新フック）──"
+echo '{}' | CLAUDE_MANUAL_REPO=/nonexistent python3 .claude/hooks/auto_update.py > "$TMP/au.txt" 2>&1
+chk "置き場が無くても止まらない（異常系）" 0 $?
+[ ! -s "$TMP/au.txt" ] && chk "置き場が無いときは何も出さない" 0 0 || chk "置き場が無いときは何も出さない" 0 1
+echo 'not json' | python3 .claude/hooks/auto_update.py > /dev/null 2>&1; chk "壊れた入力でも止まらない（異常系）" 0 $?
 
 echo "── score_session.py ──"
 python3 tools/score_session.py "$TMP/none.jsonl" > /dev/null 2>&1; chk "記録が無ければ異常終了（異常系）" 1 $?

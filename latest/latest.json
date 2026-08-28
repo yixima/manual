@@ -1,0 +1,8 @@
+{
+  "version": "v18",
+  "issued": "2026年8月28日",
+  "core_card": "https://raw.githubusercontent.com/yixima/manual/claude/ai-agent-manual-v15-validation-9yx8c9/latest/L0_core_card.md",
+  "all_in_one": "https://raw.githubusercontent.com/yixima/manual/claude/ai-agent-manual-v15-validation-9yx8c9/latest/manual_all_in_one.md",
+  "sha256_core_card": "b941bc48e129d583",
+  "note": "版番号を含まない固定URL。中身だけが更新される。貼り直しは不要。"
+}
