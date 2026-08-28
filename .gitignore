@@ -6,3 +6,4 @@ metrics/.stopguard-*
 metrics/.terms-*
 # 配布用の一括ZIP（生成物。git ls-files から毎回作り直せるため追跡しない）
 manual_v*_all_*.zip
+manual_v*_deliverables_*.zip
