@@ -106,6 +106,19 @@ if _mini.exists():
 else:
     check(False, '短縮版が存在する', f'{_mini.name} が無い。python3 tools/build_mini.py で生成すること')
 
+# 5.5 全部入り1ファイルが L0/L1/L2 と同期していること
+_aio = DIST / f'manual_{VER}_all_in_one.md'
+if _aio.exists():
+    import subprocess as _sp, tempfile as _tf, os as _os
+    _t = _tf.NamedTemporaryFile(suffix='.md', delete=False); _t.close()
+    _sp.run([sys.executable, 'tools/build_allinone.py', '--out', _t.name], capture_output=True)
+    _ok = pathlib.Path(_t.name).read_text(encoding='utf-8') == _aio.read_text(encoding='utf-8')
+    _os.unlink(_t.name)
+    check(_ok, '全部入り1ファイルが L0/L1/L2 と同期している',
+          'L0/L1/L2 を直したあと python3 tools/build_allinone.py を実行していない')
+else:
+    check(False, '全部入り1ファイルが存在する', f'{_aio.name} が無い。python3 tools/build_allinone.py で生成すること')
+
 # 5. 旧版ファイルが dist/ に残っていないこと（版ずれの温床になる）
 _stale = [f.name for f in DIST.glob('L[012]_*.md') if VER not in f.name]
 check(not _stale, f'dist/ に旧版ファイルが残っていない', f'旧版: {_stale}')
@@ -122,34 +135,56 @@ if ng:
     print('\n不一致があるため配布しない（§0-7 発行前の照合）。修正してから再実行すること。', file=sys.stderr)
     sys.exit(1)
 
-DIST.joinpath('DISTRIBUTION.md').write_text("""# 配布手順（この検査を通ったもののみ）
+DIST.joinpath('DISTRIBUTION.md').write_text(f"""# 配布手順（この検査を通ったもののみ）
 
 **配布は一方向である。** 単一ソース（本リポジトリ）→ この dist/ → 各配布先。
 **配布先で直接編集しない。** 編集はリポジトリで行い、再生成して再配布する（§0-7 版ずれの構造的排除）。
 
+## A. これから始めるセッションに効かせる（初回だけ・6箇所）
+
 | # | 配布先 | 貼るもの | 効く範囲 |
 |---|---|---|---|
-| 1 | claude.ai → 設定 →「Claudeへの指示」 | `L0_core_card_v16.md` の全文 | **すべての新しい会話** |
+| 1 | claude.ai → 左下のイニシャル → 設定 →「Instructions for Claude」 | `L0_core_card_{VER}.md` の全文（文字数で入らなければ `L0_core_card_mini_{VER}.md`） | **すべての会話・すべてのプロジェクト** |
 | 2 | claude.ai → 各プロジェクト → プロジェクト指示 | 同上（案件固有の前提を追記可） | そのプロジェクト内の会話 |
-| 3 | Cowork → 設定 → Cowork → グローバル指示 | 同上 | **すべての Cowork セッション** |
+| 3 | Cowork → 設定 → Cowork →「Global instructions」 | 同上 | **すべての Cowork セッション** |
 | 4 | `~/.claude/CLAUDE.md` | 同上 | **Claude Code の全プロジェクト＋Cowork デスクトップ** |
 | 5 | 各リポジトリの `CLAUDE.md` | 同上（プロジェクト固有の事項を追記可） | そのリポジトリ（web セッションを含む） |
-| 6 | 各リポジトリの `.claude/` | 本リポジトリの `.claude/settings.json` と `.claude/hooks/` | そのリポジトリでの機械的強制（L3） |
+| 6 | 各リポジトリの `.claude/` | 本リポジトリの `.claude/settings.json`・`.claude/hooks/`・`.claude/glossary.json` | そのリポジトリでの機械的強制（L3） |
 
-**L1（本編）と L2（記録）の置き場**
-- claude.ai：プロジェクトナレッジに添付する。
-- Claude Code：リポジトリに置き、`CLAUDE.md` から**パスで参照**する（`@` インポートは Cowork でスキップされるため、コアカードは必ず実体で貼る）。
-
-**Claude Code と Cowork（デスクトップ）は、1コマンドで済む**
+**4・5・6 は1コマンドで済む**
 ```
 python3 tools/install.py --dry-run   # 何が起きるか確認（何も書き換えない）
 python3 tools/install.py             # 実行。既存ファイルは退避してから追記・統合する
 ```
-これで上の表の 4・5・6 が完了する。**残るのは 1（claude.ai）と 3（Cowork の設定欄）の貼り付けだけ。**
+残る手作業は **1（claude.ai）と 3（Cowork）の貼り付けだけ**。
 
-**注意（一次資料で確認済み）**
-- Cowork は、作業ディレクトリ外を指す `@` インポートをスキップする。**コアカードを外部ファイル参照にしない。**
-- クラウドセッション（claude.ai/code）はローカルの `~/.claude/settings.json` を読まない。**フックはリポジトリ側に置く。**
+## B. すでに開いているセッションに効かせる（そのつど）
+
+**`manual_{VER}_all_in_one.md` を、そのセッションに添付するだけ。**
+冒頭に取扱いの指示（最優先で適用・旧版は保管のみ・確認を求めずに適用する）を内蔵しているため、
+**別途メッセージを書く必要はない。** L0・L1・L2 の3部がこの1ファイルに入っている。
+
+**新しく始めるセッションには不要**（A で自動的に効く）。
+
+## C. L1（本編）と L2（記録）の置き場
+
+- claude.ai：プロジェクトナレッジに添付する。
+- Claude Code：リポジトリに置き、`CLAUDE.md` から**パスで参照**する。
+- **`@` インポートは Cowork でスキップされるため、コアカードは必ず実体で貼る。**
+
+## D. 引き継ぎ（セッションを移るとき）
+
+`handover_template_{VER}.md` を使う。
+```
+python3 tools/make_handover.py --new <ascii_name>.md     # 雛形を作る
+python3 tools/make_handover.py --check <ascii_name>.md   # 必須10章の記入を検査する
+```
+**検査に落ちた状態で引き継がない。**
+
+## 注意（一次資料で確認済み）
+
+- Cowork は、作業ディレクトリ外を指す `@` インポートをスキップする。
+- クラウドセッション（claude.ai/code）はローカルの `~/.claude/settings.json` を読まない。フックはリポジトリ側に置く。
 - 過去のセッションへ遡って反映することはできない。**新しいセッションから効く。**
 """, encoding='utf-8')
 print('  [ok] dist/DISTRIBUTION.md を更新した')

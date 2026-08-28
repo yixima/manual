@@ -10,6 +10,7 @@ dist/                    ← 配布物（これを各所に貼る）
   L0_core_card_mini_v17.md 短縮版（73行）設定欄の文字数上限で全文が入らない場合の代替
   L1_manual_v17.md         本編（全条文・無省略・124条項）
   L2_records_v17.md        失敗記録（19件）・附則・付録
+  manual_v17_all_in_one.md すでに開いているセッションに添付する1ファイル（L0+L1+L2）
   handover_template_v17.md 引き継ぎファイルのテンプレート（必須10章）
   manual_v17_handover_20260827_v1.md  本セッションの引き継ぎファイル（記入済みの実例）
   DISTRIBUTION.md          6箇所への配布手順
