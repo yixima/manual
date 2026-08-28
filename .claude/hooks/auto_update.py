@@ -35,25 +35,42 @@ def main():
     if not repo:
         sys.exit(0)          # マニュアルの置き場が無い環境では何もしない
 
+    card_rel = 'latest/L0_core_card.md'
     before = None
-    card = repo / 'latest' / 'L0_core_card.md'
     try:
-        before = card.read_text(encoding='utf-8')
+        before = (repo / card_rel).read_text(encoding='utf-8')
     except Exception:
         pass
 
+    # 配布元は origin/main である。ローカルがどのブランチにいても、
+    # **配布元から直接読む**ことで、ブランチの状態に依存しない。
+    # （作業ブランチを削除しても壊れない。§3-15 原因を取り違えないための設計）
+    after = None
     try:
-        subprocess.run(['git', '-C', str(repo), 'pull', '--quiet', '--ff-only'],
+        subprocess.run(['git', '-C', str(repo), 'fetch', '--quiet', 'origin', 'main'],
                        capture_output=True, timeout=25)
+        r = subprocess.run(['git', '-C', str(repo), 'show', f'origin/main:{card_rel}'],
+                           capture_output=True, text=True, timeout=15)
+        if r.returncode == 0 and r.stdout.strip():
+            after = r.stdout
     except Exception:
-        sys.exit(0)          # 取得できなくても止めない
+        pass
 
-    try:
-        after = card.read_text(encoding='utf-8')
-    except Exception:
-        sys.exit(0)
+    if after is None:
+        # 配布元から読めなければ、作業ツリーを更新して読む（従来の経路）
+        try:
+            subprocess.run(['git', '-C', str(repo), 'pull', '--quiet', '--ff-only'],
+                           capture_output=True, timeout=25)
+            after = (repo / card_rel).read_text(encoding='utf-8')
+        except Exception:
+            sys.exit(0)      # 取得できなくても止めない
+
     if after == before:
         sys.exit(0)          # 変化なし＝何も言わない
+    try:
+        (repo / card_rel).write_text(after, encoding='utf-8')
+    except Exception:
+        pass
 
     ver = ''
     try:

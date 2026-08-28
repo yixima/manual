@@ -87,6 +87,12 @@ grep -q "関門" dist/bootloader.md && chk "取得失敗時のフォールバッ
 [ "$(wc -l < dist/bootloader.md)" -lt 80 ] && chk "ブートローダーが80行未満（貼りやすさ）" 0 0 || chk "ブートローダーが80行未満（貼りやすさ）" 0 1
 
 echo "── auto_update.py（自動更新フック）──"
+grep -q "origin/main" .claude/hooks/auto_update.py && chk "配布元（origin/main）から直接読む設計になっている" 0 0 || chk "配布元（origin/main）から直接読む設計になっている" 0 1
+grep -q "SANDBOX_HELP" tools/install.py && chk "サンドボックス拒否に案内を出す" 0 0 || chk "サンドボックス拒否に案内を出す" 0 1
+python3 -c "
+import ast,sys
+for f in ('.claude/hooks/auto_update.py','tools/install.py'):
+    ast.parse(open(f,encoding='utf-8').read())" && chk "両ファイルの構文が妥当" 0 0 || chk "両ファイルの構文が妥当" 0 1
 echo '{}' | CLAUDE_MANUAL_REPO=/nonexistent python3 .claude/hooks/auto_update.py > "$TMP/au.txt" 2>&1
 chk "置き場が無くても止まらない（異常系）" 0 $?
 [ ! -s "$TMP/au.txt" ] && chk "置き場が無いときは何も出さない" 0 0 || chk "置き場が無いときは何も出さない" 0 1

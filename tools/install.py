@@ -104,6 +104,20 @@ def install_hooks(home, repo, dry):
         sp.write_text(json.dumps(cur, ensure_ascii=False, indent=2) + "\n", encoding='utf-8')
     return sp
 
+SANDBOX_HELP = """
+[中止] {path} に書き込めませんでした。
+
+原因は Claude Code のサンドボックス（＝コマンドが触れてよい範囲を制限する安全機構）です。
+`~/.claude/` は保護対象のため、既定では書き込みが拒否されます。**設定の誤りではありません。**
+
+対処（どちらか一つ）:
+  1. サンドボックスを外して、この導入コマンドだけを実行し直す。
+  2. 対話型のターミナルで `claude` を起動し、`/sandbox` から `~/.claude/` への
+     書き込みを許可してから、もう一度実行する。
+
+**退避（バックアップ）は作成済みで、元のファイルは書き換わっていません。安全に再実行できます。**
+"""
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--home', default=str(pathlib.Path.home()), help='書き込み先のホーム（検証用に変更できる）')
@@ -120,8 +134,12 @@ def main():
 
     print(f"── 汎用マニュアル {ver} の導入 {'（試行・何も書き換えない）' if a.dry_run else ''} ──")
     print(f"  配布元: {card}")
-    install_card(home, card, a.dry_run)
-    install_hooks(home, repo, a.dry_run)
+    try:
+        install_card(home, card, a.dry_run)
+        install_hooks(home, repo, a.dry_run)
+    except PermissionError as e:
+        print(SANDBOX_HELP.format(path=getattr(e, 'filename', '~/.claude/')), file=sys.stderr)
+        return 1
 
     print(f"""
 ── ここまでで完了したこと ──
