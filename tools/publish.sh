@@ -36,4 +36,20 @@ for f in latest.json L0_core_card.md manual_all_in_one.md; do
   echo "  $f → HTTP $code"
   [ "$code" = "200" ] || { echo "[中止] 配布URLが取得できない" >&2; exit 1; }
 done
-curl -s --max-time 20 https://raw.githubusercontent.com/yixima/manual/main/latest/latest.json | grep '"version"'
+# 配布URLは CDN（配信網）を経由するため、公開直後は数十秒ほど古い版を返すことがある（実測 20〜40秒）。
+# **公開したはずの版が実際に配られるまで待って確認する。** 待たずに報告すると、
+# 「公開した」と言いながら古い版を配っている状態を見逃す（§3-4 検証ファースト）。
+WANT=$(python3 -c "import json;print(json.load(open('latest/latest.json'))['version'])")
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  GOT=$(curl -s --max-time 20 -H 'Cache-Control: no-cache' \
+    https://raw.githubusercontent.com/yixima/manual/main/latest/latest.json \
+    | python3 -c "import json,sys;print(json.load(sys.stdin).get('version',''))" 2>/dev/null || true)
+  if [ "$GOT" = "$WANT" ]; then
+    echo "  配布URLの版: $GOT（期待どおり。${i}回目の確認で一致）"
+    exit 0
+  fi
+  echo "  配布URLはまだ「$GOT」（期待 $WANT）。CDN の反映を待つ…"
+  sleep 15
+done
+echo "[中止] 配布URLが $WANT を返さない。CDN の反映が遅れているか、公開に失敗している。" >&2
+exit 1
