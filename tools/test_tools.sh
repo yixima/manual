@@ -7,7 +7,7 @@ chk() { if [ "$2" = "$3" ]; then echo "  [ok] $1"; pass=$((pass+1)); else echo "
 TMP=$(mktemp -d)
 
 echo "── audit_activation.py ──"
-python3 tools/audit_activation.py dist/L1_manual_v19.md --records dist/L2_records_v19.md > "$TMP/a.txt" 2>&1
+python3 tools/audit_activation.py dist/L1_manual_v20.md --records dist/L2_records_v20.md > "$TMP/a.txt" 2>&1
 chk "正常終了" 0 $?
 grep -q "(100%)" "$TMP/a.txt" && chk "到達率100%" 0 0 || chk "到達率100%" 0 1
 grep -q "孤立条項(0)" "$TMP/a.txt" && chk "孤立条項0件" 0 0 || chk "孤立条項0件" 0 1
@@ -19,15 +19,15 @@ grep -q "欠落=なし" "$TMP/b.txt" && chk "条項の欠落なし（無省略�
 
 echo "── build_dist.py ──"
 python3 tools/build_dist.py > "$TMP/c.txt" 2>&1; chk "正常終了（不一致ゼロ）" 0 $?
-cp dist/L0_core_card_v19.md "$TMP/bak.md"
-printf '\n| わざと不一致にする行 | 検査が落ちることの確認 |\n' >> dist/L0_core_card_v19.md
+cp dist/L0_core_card_v20.md "$TMP/bak.md"
+printf '\n| わざと不一致にする行 | 検査が落ちることの確認 |\n' >> dist/L0_core_card_v20.md
 python3 tools/build_dist.py > /dev/null 2>&1; chk "不一致があれば異常終了する（異常系）" 1 $?
-cp "$TMP/bak.md" dist/L0_core_card_v19.md
+cp "$TMP/bak.md" dist/L0_core_card_v20.md
 python3 tools/build_dist.py > /dev/null 2>&1; chk "復元後は再び合格する" 0 $?
 
 echo "── make_handover.py ──"
 python3 tools/make_handover.py --new "$TMP/h.md" > /dev/null 2>&1; chk "雛形を生成できる" 0 $?
-python3 tools/make_handover.py --check dist/handover_template_v19.md > /dev/null 2>&1; chk "未記入テンプレートは不合格（異常系）" 1 $?
+python3 tools/make_handover.py --check dist/handover_template_v20.md > /dev/null 2>&1; chk "未記入テンプレートは不合格（異常系）" 1 $?
 python3 - "$TMP/h.md" "$TMP/h2.md" <<'PY'
 import pathlib, sys
 t = pathlib.Path(sys.argv[1]).read_text(encoding='utf-8')
@@ -41,8 +41,8 @@ python3 tools/make_handover.py --check "$TMP/h2.md" > /dev/null 2>&1; chk "全�
 
 echo "── build_mini.py ──"
 python3 tools/build_mini.py > /dev/null 2>&1; chk "短縮版を生成できる" 0 $?
-[ -f dist/L0_core_card_mini_v19.md ] && chk "短縮版が出力される" 0 0 || chk "短縮版が出力される" 0 1
-grep -q "関門" dist/L0_core_card_mini_v19.md && chk "短縮版に関門が含まれる" 0 0 || chk "短縮版に関門が含まれる" 0 1
+[ -f dist/L0_core_card_mini_v20.md ] && chk "短縮版が出力される" 0 0 || chk "短縮版が出力される" 0 1
+grep -q "関門" dist/L0_core_card_mini_v20.md && chk "短縮版に関門が含まれる" 0 0 || chk "短縮版に関門が含まれる" 0 1
 
 echo "── install.py ──"
 FH="$TMP/fakehome"; mkdir -p "$FH/.claude"
