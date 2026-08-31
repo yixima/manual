@@ -59,10 +59,10 @@ def install_card(home, card, dry):
 
 def install_hooks(home, repo, dry):
     hdir = home / '.claude' / 'hooks' / 'manual'
-    print(f"  2. {hdir}/  … フック4本を配置")
+    print(f"  2. {hdir}/  … フック5本を配置")
     if not dry:
         hdir.mkdir(parents=True, exist_ok=True)
-        for f in ('inject_gate.py', 'check_output.py', 'guard_delivery.py', 'auto_update.py'):
+        for f in ('inject_gate.py', 'check_output.py', 'guard_delivery.py', 'auto_update.py', 'manual_sync.py'):
             shutil.copy2(repo / '.claude' / 'hooks' / f, hdir / f)
             (hdir / f).chmod(0o755)
     for f in ('glossary.json', 'manual-hooks.json'):
@@ -86,17 +86,22 @@ def install_hooks(home, repo, dry):
     wanted = {
         'SessionStart': ('*', f'python3 {hdir}/auto_update.py'),
         'UserPromptSubmit': ('*', f'python3 {hdir}/inject_gate.py'),
+        'UserPromptSubmit#sync': ('*', f'python3 {hdir}/manual_sync.py'),
         'Stop': ('*', f'python3 {hdir}/check_output.py'),
         'PreToolUse': ('Write|Edit|NotebookEdit|Bash', f'python3 {hdir}/guard_delivery.py'),
     }
     added = 0
     for ev, (matcher, cmd) in wanted.items():
+        ev = ev.split('#')[0]          # 同じイベントに複数のフックを登録するための表記
         groups = hooks.setdefault(ev, [])
         already = any(h.get('command', '').endswith(cmd.split('/')[-1])
                       for g in groups for h in g.get('hooks', []))
         if already:
             continue
-        groups.append({'matcher': matcher, 'hooks': [{'type': 'command', 'command': cmd}]})
+        entry = {'type': 'command', 'command': cmd}
+        if 'manual_sync' in cmd:
+            entry['async'] = True      # 通信を伴うため、応答を待たせない
+        groups.append({'matcher': matcher, 'hooks': [entry]})
         added += 1
     print(f"  3. {sp}  … フック登録 {added} 件を追加（既存の設定は保持）")
     backup(sp, dry)

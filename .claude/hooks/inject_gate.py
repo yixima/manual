@@ -7,7 +7,11 @@
   ② 現在日時（L1 §3-7）
      ——セッションは自分がいつ動いているかを正確に知らないことがある。
        「今日」「現在」「最新」に依存する判断を、推測で行わせないために毎ターン与える。
-  ③ セッション劣化の予兆警告（L1 §0-5）
+  ③ 配布元が更新されていたら、**その場で新しいコアカードを流し込む**（L1 §0-4）
+     ——`~/.claude/CLAUDE.md` はセッション開始時にしか読まれないため、
+       進行中のセッションに新版を届ける経路はここしかない。
+       取得そのものは manual_sync.py（非同期）が裏で済ませてあり、ここでは読むだけ。
+  ④ セッション劣化の予兆警告（L1 §0-5）
      ——往復数・記録容量・生成物の大きさを実測し、しきい値を超えたら
        「ユーザーが不調を訴える前に」引き継ぎを提案するよう促す。
 
@@ -158,12 +162,33 @@ def now_line():
     except Exception:
         return "[現在日時] 取得に失敗した。日時に依存する断定をせず、必要ならユーザーに確認すること。"
 
+def pending_update():
+    """manual_sync.py が取得しておいた新版を、1回だけ流し込む。
+    進行中のセッションへ更新を届ける唯一の経路である
+    （~/.claude/CLAUDE.md はセッション開始時にしか読まれないため）。"""
+    try:
+        d = pathlib.Path(os.environ.get('CLAUDE_MANUAL_CACHE',
+                                        pathlib.Path.home() / '.claude' / 'manual-cache'))
+        mark = d / 'pending'
+        if not mark.exists():
+            return ""
+        ver = mark.read_text(encoding='utf-8').strip()
+        card = (d / 'L0_core_card.md').read_text(encoding='utf-8')
+        mark.unlink()                      # 流し込むのは1回だけ
+        return ("\n\n[汎用マニュアル・自動更新] 配布元が " + ver + " に更新されました。"
+                "**以下が最新のコアカードです。本セッションでは、これを最上位の運用ルールとして"
+                "ただちに適用してください**（以前に適用していた版よりこちらが優先します）。"
+                "更新されたことを実況しない——適用の痕跡は出力契約を満たすことで示す。\n\n"
+                + card)
+    except Exception:
+        return ""
+
 def main():
     try:
         data = json.load(sys.stdin)
     except Exception:
         data = {}
-    print(now_line() + "\n\n" + GATE + degradation(data))
+    print(now_line() + "\n\n" + GATE + degradation(data) + pending_update())
 
 if __name__ == '__main__':
     main()

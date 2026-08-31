@@ -26,5 +26,12 @@
       "slides",
       "docs"
     ]
+  },
+  "_sync_comment": "進行中セッションへの自動反映。auto_sync=false で停止。rewake_on_update=true にすると、更新を検知した時点で作業中でも割り込んで通知する（既定は false。作業中の割り込みは §2-9 に反するため）。check_interval は取得しに行く最短間隔（秒）。",
+  "sync": {
+    "auto_sync": true,
+    "rewake_on_update": false,
+    "base_url": "https://raw.githubusercontent.com/yixima/manual/main/latest",
+    "check_interval": 900
   }
 }

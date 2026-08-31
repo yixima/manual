@@ -1,4 +1,4 @@
-# 汎用マニュアル v20 ＋ 発動・検証・改善の仕組み
+# 汎用マニュアル v21 ＋ 発動・検証・改善の仕組み
 
 AIエージェント（Claude）のセッションに対する運用マニュアルを、**書いて終わりにせず、実際に発動し、発動したかを測り、測った結果で改善する**ための一式。
 
@@ -6,13 +6,13 @@ AIエージェント（Claude）のセッションに対する運用マニュア
 
 ```
 dist/                    ← 配布物（これを各所に貼る）
-  L0_core_card_v20.md      コアカード（149行）★常時コンテキストに載せる中核
-  L0_core_card_mini_v20.md 短縮版（79行）設定欄の文字数上限で全文が入らない場合の代替
-  L1_manual_v20.md         本編（全条文・無省略・124条項）
-  L2_records_v20.md        失敗記録（25件）・附則・付録
-  manual_v20_all_in_one.md すでに開いているセッションに添付する1ファイル（L0+L1+L2）
-  handover_template_v20.md 引き継ぎファイルのテンプレート（必須10章）
-  manual_v20_handover_20260828_v1.md  本セッションの引き継ぎファイル（記入済みの実例）
+  L0_core_card_v21.md      コアカード（149行）★常時コンテキストに載せる中核
+  L0_core_card_mini_v21.md 短縮版（79行）設定欄の文字数上限で全文が入らない場合の代替
+  L1_manual_v21.md         本編（全条文・無省略・124条項）
+  L2_records_v21.md        失敗記録（25件）・附則・付録
+  manual_v21_all_in_one.md すでに開いているセッションに添付する1ファイル（L0+L1+L2）
+  handover_template_v21.md 引き継ぎファイルのテンプレート（必須10章）
+  manual_v21_handover_20260828_v1.md  本セッションの引き継ぎファイル（記入済みの実例）
   DISTRIBUTION.md          6箇所への配布手順
 .claude/                 ← L3 フック層（Claude Code のみ・機械的強制）
   settings.json            フックの登録
@@ -49,7 +49,7 @@ source/                  ← 原本 v13 / v15（改変せず保持）
 ## 使い始める
 
 ```bash
-python3 tools/audit_activation.py dist/L1_manual_v20.md --records dist/L2_records_v20.md   # 発動構造の検査
+python3 tools/audit_activation.py dist/L1_manual_v21.md --records dist/L2_records_v21.md   # 発動構造の検査
 python3 tools/build_dist.py                                                                # 配布前の整合検査
 ./tools/test_hooks.sh                                                                      # フックの起動検証（33件）
 ./tools/test_tools.sh                                                                      # スクリプトの起動検証（27件）
@@ -62,7 +62,7 @@ python3 tools/build_dist.py                                                     
 1. **claude.ai → 設定 →「Instructions for Claude」**
 2. **Cowork → 設定 → Cowork →「Global instructions」**
 
-- **進行中のセッション**：そのセッションで **「マニュアル更新」** と打つだけ。添付は不要。
+- **進行中のセッション**：`[Code]` は**完全自動**（非同期フックが版を照合し、更新があれば次のターンで新しいコアカードを流し込みます）。`[Chat]`／`[Cowork]` はブートローダーの照合規則により自動で追随します。手動で切り替えたいときだけ **「マニュアル更新」** と打ってください。
 - **Claude Code**：`python3 tools/install.py` を一度実行すれば、以後は SessionStart フックが自動で `git pull` して最新化します。**操作は不要。**
 
 固定URL（版番号を含まないため、URLが変わりません）
@@ -79,10 +79,10 @@ python3 tools/install.py             # Claude Code の全プロジェクト＋Co
 
 残るのは**2箇所への貼り付けだけ**です。
 
-1. **claude.ai → 設定 →「Claudeへの指示」** に `dist/L0_core_card_v20.md` の全文を貼る → **すべての会話・すべてのプロジェクト**に効く
+1. **claude.ai → 設定 →「Claudeへの指示」** に `dist/L0_core_card_v21.md` の全文を貼る → **すべての会話・すべてのプロジェクト**に効く
 2. **Cowork → 設定 → Cowork →「グローバル指示」** に同じ全文を貼る → **すべての Cowork セッション**に効く
 
-文字数の上限で入らない場合は `dist/L0_core_card_mini_v20.md`（4,136字）を使う。
+文字数の上限で入らない場合は `dist/L0_core_card_mini_v21.md`（4,136字）を使う。
 詳細は `dist/DISTRIBUTION.md`。
 
 ## 検証結果（同梱スクリプトで再現できる数値のみ）

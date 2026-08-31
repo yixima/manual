@@ -78,7 +78,7 @@ def norm(b):
     b = re.sub(r'（[^）]*）', '', b)
     return re.sub(r'[|\s#\-`:_>*]', '', b)
 
-def check(path, template='dist/handover_template_v20.md'):
+def check(path, template='dist/handover_template_v21.md'):
     """必須10章が「テンプレートのまま」でないかを検査する。
     章の見出しがあるだけでは合格にしない。**中身が書き足されているか**を、
     テンプレートとの差分で判定する（雛形のまま渡す事故を防ぐため）。"""
@@ -121,7 +121,7 @@ def main():
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument('--new', metavar='OUT')
     g.add_argument('--check', metavar='FILE')
-    ap.add_argument('--template', default='dist/handover_template_v20.md')
+    ap.add_argument('--template', default='dist/handover_template_v21.md')
     a = ap.parse_args()
     return new(a.new, a.template) if a.new else check(a.check, a.template)
 
