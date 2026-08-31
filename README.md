@@ -1,4 +1,4 @@
-# 汎用マニュアル v18 ＋ 発動・検証・改善の仕組み
+# 汎用マニュアル v19 ＋ 発動・検証・改善の仕組み
 
 AIエージェント（Claude）のセッションに対する運用マニュアルを、**書いて終わりにせず、実際に発動し、発動したかを測り、測った結果で改善する**ための一式。
 
@@ -6,13 +6,13 @@ AIエージェント（Claude）のセッションに対する運用マニュア
 
 ```
 dist/                    ← 配布物（これを各所に貼る）
-  L0_core_card_v18.md      コアカード（144行）★常時コンテキストに載せる中核
-  L0_core_card_mini_v18.md 短縮版（79行）設定欄の文字数上限で全文が入らない場合の代替
-  L1_manual_v18.md         本編（全条文・無省略・124条項）
-  L2_records_v18.md        失敗記録（23件）・附則・付録
-  manual_v18_all_in_one.md すでに開いているセッションに添付する1ファイル（L0+L1+L2）
-  handover_template_v18.md 引き継ぎファイルのテンプレート（必須10章）
-  manual_v18_handover_20260828_v1.md  本セッションの引き継ぎファイル（記入済みの実例）
+  L0_core_card_v19.md      コアカード（147行）★常時コンテキストに載せる中核
+  L0_core_card_mini_v19.md 短縮版（79行）設定欄の文字数上限で全文が入らない場合の代替
+  L1_manual_v19.md         本編（全条文・無省略・124条項）
+  L2_records_v19.md        失敗記録（24件）・附則・付録
+  manual_v19_all_in_one.md すでに開いているセッションに添付する1ファイル（L0+L1+L2）
+  handover_template_v19.md 引き継ぎファイルのテンプレート（必須10章）
+  manual_v19_handover_20260828_v1.md  本セッションの引き継ぎファイル（記入済みの実例）
   DISTRIBUTION.md          6箇所への配布手順
 .claude/                 ← L3 フック層（Claude Code のみ・機械的強制）
   settings.json            フックの登録
@@ -49,7 +49,7 @@ source/                  ← 原本 v13 / v15（改変せず保持）
 ## 使い始める
 
 ```bash
-python3 tools/audit_activation.py dist/L1_manual_v18.md --records dist/L2_records_v18.md   # 発動構造の検査
+python3 tools/audit_activation.py dist/L1_manual_v19.md --records dist/L2_records_v19.md   # 発動構造の検査
 python3 tools/build_dist.py                                                                # 配布前の整合検査
 ./tools/test_hooks.sh                                                                      # フックの起動検証（33件）
 ./tools/test_tools.sh                                                                      # スクリプトの起動検証（27件）
@@ -79,10 +79,10 @@ python3 tools/install.py             # Claude Code の全プロジェクト＋Co
 
 残るのは**2箇所への貼り付けだけ**です。
 
-1. **claude.ai → 設定 →「Claudeへの指示」** に `dist/L0_core_card_v18.md` の全文を貼る → **すべての会話・すべてのプロジェクト**に効く
+1. **claude.ai → 設定 →「Claudeへの指示」** に `dist/L0_core_card_v19.md` の全文を貼る → **すべての会話・すべてのプロジェクト**に効く
 2. **Cowork → 設定 → Cowork →「グローバル指示」** に同じ全文を貼る → **すべての Cowork セッション**に効く
 
-文字数の上限で入らない場合は `dist/L0_core_card_mini_v18.md`（4,136字）を使う。
+文字数の上限で入らない場合は `dist/L0_core_card_mini_v19.md`（4,136字）を使う。
 詳細は `dist/DISTRIBUTION.md`。
 
 ## 検証結果（同梱スクリプトで再現できる数値のみ）
@@ -93,11 +93,11 @@ python3 tools/install.py             # Claude Code の全プロジェクト＋Co
 | 関門・自動発動表からの到達率 | 41% | 98% | **100%** |
 | 孤立条項 | 69 | 2 | **0** |
 | 失敗記録の捕捉率 | 14/14 | 14/15 | **15/15** |
-| 失敗記録の件数 | 14 | 15 | **23** |
+| 失敗記録の件数 | 14 | 15 | **24** |
 | コアカードの行数 | （分離なし） | （分離なし） | **144行**（上限200行） |
 | 遵守度の測定手段 | 無し | 無し | **フックによる全ターン記録＋盲検採点** |
 | 機械的強制 | 無し | 無し | **6種（`[Code]`）** |
-| 自動テスト | 無し | 無し | **63件（フック36・スクリプト27）** |
+| 自動テスト | 無し | 無し | **76件（フック36・スクリプト40）** |
 
 **v15 の改訂履歴が掲げた「到達率100%・捕捉率15/15」は、独立の再実行で再現できなかった**（98%・14/15）。
 判定基準が本文に無く第三者が再現できないことが原因であり、v16 では判定基準をコードとして公開している（`tools/audit_activation.py`）。
