@@ -164,6 +164,45 @@ __MANIFEST__
 """
 
 
+
+FENCE = re.compile(r'^(`{3,})')
+
+
+def fillable(text):
+    """**記入欄だけ**を返す。原文（引用ブロック・コードブロック）は取り除く。
+
+    なぜ必要か：引き継ぎファイルは原文をそのまま運ぶ（§10-5 原本主義）。
+    その原文の中に `【要記入】` という文字列が現れることは普通にありうる——
+    たとえば、この仕組み自体を作った作業の記録がそうであった。
+    **原文に何が書いてあっても、それは記入欄ではない。** 検査対象から外す。
+    （実測で発見した不具合。原文を検査対象に含めていたため、記入済みのファイルが
+      いつまでも不合格になった。）
+
+    コードブロックの終わりは、**開いたときと同じ数以上の ` で閉じられたとき**とする。
+    3個で開いたブロックの中に3個の行があると、そこで閉じたと誤認するため、
+    原文を載せる側は4個以上で開く。
+    """
+    out, fence = [], None
+    for ln in text.splitlines():
+        m = FENCE.match(ln)
+        if fence is None:
+            if m:
+                fence = len(m.group(1))
+                continue
+            if ln.lstrip().startswith('>'):
+                continue                      # 引用＝原文
+            # 行内コード（`…`）の中は、**その言葉について書いた文**であって記入欄ではない。
+            # 例：「`【要記入】` が42箇所残っていた」という失敗の記録は、未記入ではない。
+            out.append(re.sub(r'`[^`]*`', '', ln))
+        else:
+            if m and len(m.group(1)) >= fence:
+                fence = None
+    return "\n".join(out)
+
+
+def todo_count(text):
+    return fillable(text).count(TODO)
+
 # ── ①記録から作る（[Code]）──────────────────────────────────
 def auto(out, template, transcript=None, cwd=None, verbatim=True):
     cwd = cwd or os.getcwd()
@@ -310,14 +349,14 @@ def auto(out, template, transcript=None, cwd=None, verbatim=True):
     L.append(f"> セッション中に**実際に実行した**コマンドを、重複を除いて時系列で全件載せた（{len(d['commands'])} 件）。"
              "推測ではなく実行記録である。\n")
     L.append(f"実行ディレクトリ：`{d['cwd']}`\n")
-    L.append("```bash")
+    L.append("````bash")
     for c in d['commands']:
         if c['why']:
             L.append(f"# {c['why']}")
         L.append(c['command'])
     if not d['commands']:
         L.append(f"# 実行したコマンドは記録されていない {TODO}")
-    L.append("```\n")
+    L.append("````\n")
     L.append("---\n")
 
     # ユーザーが提示した資料
@@ -381,7 +420,7 @@ def auto(out, template, transcript=None, cwd=None, verbatim=True):
     print(f"{out} を作成した。")
     print(f"  記録から写した：依頼の原文 {len(d['user_messages'])} 件／実行したコマンド {len(d['commands'])} 件／"
           f"編集したファイル {len(d['files'])} 件／失敗 {len(d['errors'])} 件")
-    todo = pathlib.Path(out).read_text(encoding='utf-8').count(TODO)
+    todo = todo_count(pathlib.Path(out).read_text(encoding='utf-8'))
     print(f"  残りは {todo} 箇所の {TODO}（＝**理由**。記録に残らないため、機械には書けない）。")
     print("  埋め終えたら `--check` を通すこと。通らないうちは渡さない。")
     return 0
@@ -445,6 +484,19 @@ def norm(b):
     return re.sub(r'[|\s#\-`:_>*]', '', b)
 
 
+
+def substance(body, tpl_body):
+    """その章に、**説明文以外の中身**がどれだけあるかを数える。
+
+    引用ブロックを一律に除くと、**原文だけで構成される章（1章・付録）が空と判定される**
+    （実測で発見した不具合）。原本主義（§10-5）では引用こそが中身であるため、
+    「テンプレートに元からある行」を引いた残りを中身として数える。
+    """
+    base = set(l.strip() for l in (tpl_body or '').splitlines())
+    rest = [l for l in body.splitlines()
+            if l.strip() not in base and not l.startswith('#')]
+    return len(re.sub(r'[|\s#\-`:_>*]', '', "\n".join(rest)))
+
 def check(path, template=None):
     """必須10章が「テンプレートのまま」でないかを検査する。
     章の見出しがあるだけでは合格にしない。**中身が書き足されているか**を、
@@ -468,10 +520,10 @@ def check(path, template=None):
         nb = norm(body)
         if tb is not None and nb == norm(tb):
             ng.append(f"章がテンプレートのまま（未記入）：{s}")
-        elif len(nb.replace(re.sub(r'[|\s#\-`:_>*]', '', s), '')) < 12:
+        elif substance(body, tb) < 12:
             ng.append(f"章の中身がほとんど無い：{s}")
-        elif TODO in body:
-            ng.append(f"{TODO} が残っている：{s}（{body.count(TODO)} 箇所）")
+        elif todo_count(body):
+            ng.append(f"{TODO} が残っている：{s}（{todo_count(body)} 箇所）")
     man, ok = read_manifest(t)
     print('── 引き継ぎファイルの検査（L1 §10-5）──')
     if man is None:
@@ -523,7 +575,7 @@ def receipt(path):
         for k, v in (man.get('counts') or {}).items():
             print(f"             {k}: {v}")
     miss = [s for s in SECTIONS if section_body(t, s) is None]
-    todo = t.count(TODO)
+    todo = todo_count(t)
     print(f"  10章     : {'すべて存在する' if not miss else '欠落あり → ' + '／'.join(miss)}")
     if todo:
         print(f"  未記入   : {TODO} が {todo} 箇所残っている。**その箇所は引き継がれていない。**")

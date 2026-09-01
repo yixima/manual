@@ -109,6 +109,39 @@ chk "全部埋まっていれば受領が完全になる" 0 $?
 python3 tools/make_handover.py --receipt "$TMP/none.md" > /dev/null 2>&1
 chk "ファイルが無ければ異常終了（異常系）" 1 $?
 
+# ── 検査は「記入欄」だけを見る（原文は検査しない）──
+# 原本主義（§10-5）で原文をそのまま運ぶ以上、原文の中に検査用の目印が現れることはありうる。
+# それを未記入と数えると、**記入済みのファイルがいつまでも合格しない**（実測で発見した不具合）。
+python3 - "$TMP/filled.md" "$TMP/verbatim.md" <<'PYT'
+import pathlib, sys, re, hashlib
+t = pathlib.Path(sys.argv[1]).read_text(encoding='utf-8')
+old = re.search(r'"sha256": "([0-9a-f]{64})"', t).group(1)
+# ①引用（原文）の中 ②コードブロック（実行したコマンド）の中 ③行内コード（その言葉について書いた文）
+t = t.replace('## 1. 依頼の原文\n', '## 1. 依頼の原文\n\n> ユーザーの発言に【要記入】と書いてあった。\n')
+t = t.replace('## 10. 使用したコマンド・手順\n',
+              '## 10. 使用したコマンド・手順\n\n````bash\necho "【要記入】"\n```\necho "内側の3個で閉じない"\n````\n')
+t = t.replace('## 6. 失敗と、そこから得た改善\n',
+              '## 6. 失敗と、そこから得た改善\n\n`【要記入】` が42箇所残っていた、という失敗の記録である。\n')
+t = t.replace(old, 'PENDING-SHA256')
+t = t.replace('PENDING-SHA256', hashlib.sha256(t.encode('utf-8')).hexdigest())
+pathlib.Path(sys.argv[2]).write_text(t, encoding='utf-8')
+PYT
+python3 tools/make_handover.py --check "$TMP/verbatim.md" > "$TMP/v.txt" 2>&1
+chk "原文・コード・行内コードの中の目印を未記入と数えない" 0 $?
+grep -q "章の中身がほとんど無い" "$TMP/v.txt" && chk "引用だけで構成された章を空と判定しない" 0 1 || chk "引用だけで構成された章を空と判定しない" 0 0
+# 記入欄が本当に空なら、ちゃんと落ちること（見逃しの回帰テスト）
+python3 - "$TMP/filled.md" "$TMP/blank.md" <<'PYT'
+import pathlib, sys, re, hashlib
+t = pathlib.Path(sys.argv[1]).read_text(encoding='utf-8')
+old = re.search(r'"sha256": "([0-9a-f]{64})"', t).group(1)
+t = t.replace('## 8. 次に最初に行うこと\n', '## 8. 次に最初に行うこと\n\n1. 【要記入】\n')
+t = t.replace(old, 'PENDING-SHA256')
+t = t.replace('PENDING-SHA256', hashlib.sha256(t.encode('utf-8')).hexdigest())
+pathlib.Path(sys.argv[2]).write_text(t, encoding='utf-8')
+PYT
+python3 tools/make_handover.py --check "$TMP/blank.md" > /dev/null 2>&1
+chk "記入欄が空なら落ちる（見逃しの回帰）" 1 $?
+
 echo "── build_mini.py ──"
 python3 tools/build_mini.py > /dev/null 2>&1; chk "短縮版を生成できる" 0 $?
 [ -f "$(ls dist/L0_core_card_mini_v[0-9]*.md 2>/dev/null | tail -1)" ] && chk "短縮版が出力される" 0 0 || chk "短縮版が出力される" 0 1
