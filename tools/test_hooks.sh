@@ -61,6 +61,13 @@ chk "壊れた入力でも作業を止めない" 0 "$(echo 'not json' | python3 
 rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
 chk "【型I】未完了なのに中断理由が無ければ差し戻す" 2 "$(run "$(J '【この応答で完了したこと】調査。【未完了】実装。【次に最初に行うこと】実装の着手。')")"
 rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
+# 回帰テスト：一覧に「未完了」の語があるだけでは差し戻さない（2026-09-01 の誤検知）
+rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test
+list=$(python3 -c "print('必須の項目は次のとおりです。'*20 + '①作成理由 ②重要な決定 ③却下案 ④主な成果物 ⑤未完了 ⑥次の一手。未完了はありません。')")
+chk "【型I】一覧に「未完了」の語があるだけでは通す（誤検知の回帰）" 0 "$(run "$(J "$list")")"
+rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test
+chk "【型I】実際に未完了が残っていれば差し戻す" 2 "$(run "$(J '調査は終わりました。未完了が残っています。')")"
+rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test
 chk "【型I】中断理由（承認待ち）が書いてあれば通す" 0 "$(run "$(J '【この応答で完了したこと】調査。【未完了】実装（承認待ちのため中断）。— 状態：入力待ち　次：ご承認ください')")"
 rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
 jarg=$(python3 -c "print('詳しい説明。'*60 + 'フックを使って強制します。出力契約も適用します。')")

@@ -62,7 +62,30 @@ RE_VERIFIED = re.compile(r'【確認済】')
 RE_SOURCE = re.compile(r'(https?://)|(出典[:：])|(一次資料)|(`[^`]+\.(md|py|sh|json|ya?ml)`)')
 
 # R4【型I】未完了で終わるのに中断の理由が書かれていない（L1 §2-9 完遂義務）
-RE_INCOMPLETE = re.compile(r'(【未完了】|未完了|残りの作業|次に最初に行うこと|途中まで|一旦ここまで)')
+# 「未完了」という語が**一覧や説明の中に現れただけ**では発火させない。
+# （2026-09-01 の誤検知：必須項目の一覧に『⑤未完了』と書いただけで差し戻された。
+#  誤検知で作業を止めることは、それ自体がマニュアル違反である。§2-9・L2 記録参照）
+# 実際に未完了が**残っていると述べている**場合だけを拾う。
+RE_INCOMPLETE = re.compile(
+    r'(【未完了】|未完了(?:が|は|の作業が)?(?:残|あり)|残りの作業|次に最初に行うこと|'
+    r'途中まで|一旦ここまで|未完了のまま|やり切れ(?:て|なかっ))')
+# 否定表現（「未完了はありません」等）は未完了ではない。**打ち消しを拾わない。**
+RE_NEGATED = re.compile(r'(ませ|ない|無い|なし|ゼロ|0件|存在しな)')
+
+def has_incomplete(msg):
+    """実際に未完了が残っていると述べているかを判定する。
+
+    「未完了」という語が一覧や説明の中に現れただけでは、未完了ではない。
+    （2026-09-01 の誤検知：必須項目の一覧に『⑤未完了』と書いただけで差し戻された。
+     誤検知で作業を止めることは、それ自体がマニュアル違反である。§2-9・L2 記録参照）
+    """
+    for m in RE_INCOMPLETE.finditer(msg):
+        tail = msg[m.end():m.end() + 10]
+        if RE_NEGATED.search(tail):
+            continue                      # 打ち消されている＝未完了ではない
+        return True
+    return False
+
 RE_REASON = re.compile(r'(質問|お伺い|ご判断|判断が必要|承認|許可|エラー|失敗しました|進めません|進められません|'
                        r'危険|不可逆|確認が必要|確認させて|どちらに|ますか[？?]|でしょうか[？?])')
 
@@ -125,7 +148,7 @@ def evaluate(msg, cfg, cwd='.', session='x'):
     if r.get("unsourced_verified_label", True) and RE_VERIFIED.search(msg) and not RE_SOURCE.search(msg):
         viol.append(("型A", "【確認済】と書いているが出典が併記されていない。出典を書けないなら"
                             "【未確認・推測】へ落とす（§3-1）。"))
-    if r.get("unexplained_incomplete", True) and RE_INCOMPLETE.search(msg) and not RE_REASON.search(msg):
+    if r.get("unexplained_incomplete", True) and has_incomplete(msg) and not RE_REASON.search(msg):
         viol.append(("型I", "作業に未完了が残っているのに、中断の理由が書かれていない。"
                             "続行を妨げる要因（①質問が必要 ②承認待ち ③エラーで進めない ④危険で確認が要る）が"
                             "無いなら、応答を終えずに最後までやり切る。あるなら、①〜④のどれかを明示する（§2-9）。"))
