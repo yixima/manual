@@ -3,7 +3,7 @@
 """発動構造の機械検査：条項の抽出／関門・自動発動表からの到達可能性／孤立条項／失敗記録の捕捉率。
 使い方: python3 tools/audit_activation.py <manual.md> [<manual2.md> ...]
 """
-import re, sys, json
+import re, sys, json, pathlib
 
 CLAUSE_DEF = re.compile(r'^\*\*(\d+-\d+)\.')          # 本文中の条項定義 **0-10. …**
 SEC_DEF    = re.compile(r'^## §(\d+)\.')              # 節見出し
@@ -115,6 +115,11 @@ RECORDS_LINES = None
 
 if __name__ == '__main__':
     args = sys.argv[1:]
+    OUT_JSON = None
+    if '--json' in args:
+        i = args.index('--json')
+        OUT_JSON = args[i + 1]
+        args = args[:i] + args[i + 2:]
     if '--records' in args:
         i = args.index('--records')
         RECORDS_LINES = load(args[i + 1])
@@ -137,4 +142,10 @@ if __name__ == '__main__':
         print(f"DIFF {a['path']} -> {b['path']}")
         print(f"  追加条項: {sorted(sb-sa) or 'なし'}")
         print(f"  削除条項: {sorted(sa-sb) or 'なし'}")
-    json.dump(res, open('/tmp/claude-0/-home-user-manual/ee365d51-8050-5e71-a91f-89ed13214fae/scratchpad/audit.json','w'), ensure_ascii=False, indent=1)
+    # 集計結果の JSON は、指定されたときだけ書き出す。
+    # （以前はある一時ディレクトリのパタスを直書きしていたため、**別のセッションで実行すると必ず落ちた**。
+    #   セッション固有のパスを成果物へ焼き込まない。§10-5 の趣旨と同じ。）
+    if OUT_JSON:
+        pathlib.Path(OUT_JSON).parent.mkdir(parents=True, exist_ok=True)
+        json.dump(res, open(OUT_JSON, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+        print(f"  集計結果を {OUT_JSON} に書き出した")

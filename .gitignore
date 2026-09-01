@@ -7,3 +7,8 @@ metrics/.terms-*
 # 配布用の一括ZIP（生成物。git ls-files から毎回作り直せるため追跡しない）
 manual_v*_all_*.zip
 manual_v*_deliverables_*.zip
+
+# 引き継ぎファイルは会話の原文を含むため、既定では追跡しない（L1 §10-5・§8-4）。
+# 共有する必要があるときだけ、中身を確認したうえで `git add -f` する。
+handover/*.md
+!handover/README.md

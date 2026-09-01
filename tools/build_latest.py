@@ -11,12 +11,38 @@
   latest/manual_all_in_one.md 同・全部入り
   latest/latest.json          版・発行日・取得先（版の確認用）
   dist/bootloader.md          設定欄に**一度だけ**貼る短い文章
+  CLAUDE.md                   下半分（コアカードの実体）を最新版へ差し替える
+
+**CLAUDE.md を自動で同期する理由**：本リポジトリの `CLAUDE.md` はコアカードを実体として内蔵する
+（`@` インポートは Cowork でスキップされるため）。これを手で写す運用にしていたが、
+**手で写す限り、いつか写し忘れて版が枝分かれする**（§0-7 の版ずれ）。生成に含めて構造的に潰す。
 """
 import json, re, shutil, sys, pathlib, hashlib
 
 REPO = 'yixima/manual'
 BRANCH = 'main'
 BASE = f'https://raw.githubusercontent.com/{REPO}/{BRANCH}/latest'
+
+CARD_HEAD = '# 汎用マニュアル v'
+
+def sync_claude_md(card, ver, date):
+    """リポジトリの CLAUDE.md の下半分（コアカードの実体）を、最新のコアカードで置き換える。
+
+    上半分（リポジトリ固有の取り決め）は触らない。境界は「# 汎用マニュアル v… ／ コアカード」の見出し。
+    """
+    p = pathlib.Path('CLAUDE.md')
+    if not p.exists():
+        return
+    cur = p.read_text(encoding='utf-8')
+    i = cur.find(CARD_HEAD)
+    if i < 0:
+        print('  [!] CLAUDE.md にコアカードの見出しが見つからない。手で確認すること。')
+        return
+    head = cur[:i]
+    # 上半分に残っている旧版の表記も合わせて直す（版ずれの温床になるため）
+    head = re.sub(r'v\d+', ver, head)
+    p.write_text(head + card.read_text(encoding='utf-8'), encoding='utf-8')
+    print(f'  CLAUDE.md  … コアカードの実体を {ver}（{date}）へ同期した')
 
 def main():
     d, L = pathlib.Path('dist'), pathlib.Path('latest')
@@ -36,6 +62,8 @@ def main():
         "note": "版番号を含まない固定URL。中身だけが更新される。貼り直しは不要。",
     }
     (L / 'latest.json').write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding='utf-8')
+
+    sync_claude_md(card, ver, date)
 
     boot = f"""# 汎用マニュアル：常時適用（ブートローダー）
 

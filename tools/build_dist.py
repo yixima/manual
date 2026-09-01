@@ -134,6 +134,18 @@ if (_lat / 'L0_core_card.md').exists():
 else:
     check(False, 'latest/ が存在する', 'python3 tools/build_latest.py で生成すること')
 
+# 5.8 リポジトリの CLAUDE.md が内蔵するコアカードが、最新版と一致していること
+#     （CLAUDE.md は `@` インポートが使えないため実体を内蔵する。手で写すと必ずいつか版がずれる）
+_cmd = pathlib.Path('CLAUDE.md')
+if _cmd.exists():
+    _c = _cmd.read_text(encoding='utf-8')
+    _i = _c.find('# 汎用マニュアル v')
+    check(_i >= 0 and _c[_i:] == txt['L0'],
+          'CLAUDE.md が内蔵するコアカードが最新版と一致している',
+          'コアカードを直したあと python3 tools/build_latest.py を実行していない')
+else:
+    check(False, 'CLAUDE.md が存在する', 'リポジトリ直下に無い')
+
 # 5. 旧版ファイルが dist/ に残っていないこと（版ずれの温床になる）
 _stale = [f.name for f in DIST.glob('L[012]_*.md') if VER not in f.name]
 check(not _stale, f'dist/ に旧版ファイルが残っていない', f'旧版: {_stale}')
@@ -219,12 +231,26 @@ python3 tools/install.py             # 実行。既存ファイルは退避し�
 
 ## D. 引き継ぎ（セッションを移るとき）
 
-`handover_template_{VER}.md` を使う。
+**引き継ぎは「書き写す」作業ではない。「記録から生成し、届いたことを照合する」作業である**（§10-5）。
+
+### `[Code]`（記録が残るため、ほぼ自動）
 ```
-python3 tools/make_handover.py --new <ascii_name>.md     # 雛形を作る
-python3 tools/make_handover.py --check <ascii_name>.md   # 必須10章の記入を検査する
+python3 tools/make_handover.py --auto  handover/<ascii_name>.md   # 記録から生成（要約しない）
+python3 tools/make_handover.py --check handover/<ascii_name>.md   # 渡せる状態かを検査
 ```
-**検査に落ちた状態で引き継がない。**
+`--auto` が自動で埋めるのは **①依頼の原文 ④発行したファイル ⑤調整の経緯 ⑥失敗 ⑦未完了 ⑩使用したコマンド**。
+残る `【要記入】` は **②決定の理由 ③却下した案 ⑧次の一手 ⑨前提条件**——**理由は記録に残らないため、機械には書けない。**
+`【要記入】` が1つでも残っていれば `--check` は不合格になる。**検査に落ちた状態で引き継がない。**
+
+**次のセッションは `handover/` を自動で受領する**（SessionStart フック）。手で確かめるときは：
+```
+python3 tools/make_handover.py --receipt handover/<ascii_name>.md
+```
+一致すれば、冒頭の確認作業はそれで完了とする。**「ちゃんと理解できていますか」と質問して確かめる必要はない。**
+
+### `[Chat]` `[Cowork]`（記録が無いため、節目ごとに追記する）
+`handover_template_{VER}.md` を使い、**一度に全部を思い出そうとせず、区切りのたびに同じファイルを作り直す**（§0-5）。
+0章の件数表を実際に数えて埋め、受け取った側はそれと本文を突き合わせる。
 
 ## 注意（一次資料で確認済み）
 

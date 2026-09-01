@@ -59,10 +59,11 @@ def install_card(home, card, dry):
 
 def install_hooks(home, repo, dry):
     hdir = home / '.claude' / 'hooks' / 'manual'
-    print(f"  2. {hdir}/  … フック5本を配置")
+    print(f"  2. {hdir}/  … フック6本を配置")
     if not dry:
         hdir.mkdir(parents=True, exist_ok=True)
-        for f in ('inject_gate.py', 'check_output.py', 'guard_delivery.py', 'auto_update.py', 'manual_sync.py'):
+        for f in ('inject_gate.py', 'check_output.py', 'guard_delivery.py', 'auto_update.py',
+                  'manual_sync.py', 'handover_receipt.py'):
             shutil.copy2(repo / '.claude' / 'hooks' / f, hdir / f)
             (hdir / f).chmod(0o755)
     for f in ('glossary.json', 'manual-hooks.json'):
@@ -85,6 +86,7 @@ def install_hooks(home, repo, dry):
     hooks = cur.setdefault('hooks', {})
     wanted = {
         'SessionStart': ('*', f'python3 {hdir}/auto_update.py'),
+        'SessionStart#handover': ('*', f'python3 {hdir}/handover_receipt.py'),
         'UserPromptSubmit': ('*', f'python3 {hdir}/inject_gate.py'),
         'UserPromptSubmit#sync': ('*', f'python3 {hdir}/manual_sync.py'),
         'Stop': ('*', f'python3 {hdir}/check_output.py'),

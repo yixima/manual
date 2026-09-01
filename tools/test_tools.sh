@@ -7,7 +7,7 @@ chk() { if [ "$2" = "$3" ]; then echo "  [ok] $1"; pass=$((pass+1)); else echo "
 TMP=$(mktemp -d)
 
 echo "── audit_activation.py ──"
-python3 tools/audit_activation.py dist/L1_manual_v21.md --records dist/L2_records_v21.md > "$TMP/a.txt" 2>&1
+python3 tools/audit_activation.py dist/L1_manual_v*.md --records dist/L2_records_v*.md > "$TMP/a.txt" 2>&1
 chk "正常終了" 0 $?
 grep -q "(100%)" "$TMP/a.txt" && chk "到達率100%" 0 0 || chk "到達率100%" 0 1
 grep -q "孤立条項(0)" "$TMP/a.txt" && chk "孤立条項0件" 0 0 || chk "孤立条項0件" 0 1
@@ -19,15 +19,16 @@ grep -q "欠落=なし" "$TMP/b.txt" && chk "条項の欠落なし（無省略�
 
 echo "── build_dist.py ──"
 python3 tools/build_dist.py > "$TMP/c.txt" 2>&1; chk "正常終了（不一致ゼロ）" 0 $?
-cp dist/L0_core_card_v21.md "$TMP/bak.md"
-printf '\n| わざと不一致にする行 | 検査が落ちることの確認 |\n' >> dist/L0_core_card_v21.md
+CARD=$(ls dist/L0_core_card_v[0-9]*.md | tail -1)
+cp "$CARD" "$TMP/bak.md"
+printf '\n| わざと不一致にする行 | 検査が落ちることの確認 |\n' >> "$CARD"
 python3 tools/build_dist.py > /dev/null 2>&1; chk "不一致があれば異常終了する（異常系）" 1 $?
-cp "$TMP/bak.md" dist/L0_core_card_v21.md
+cp "$TMP/bak.md" "$CARD"
 python3 tools/build_dist.py > /dev/null 2>&1; chk "復元後は再び合格する" 0 $?
 
 echo "── make_handover.py ──"
 python3 tools/make_handover.py --new "$TMP/h.md" > /dev/null 2>&1; chk "雛形を生成できる" 0 $?
-python3 tools/make_handover.py --check dist/handover_template_v21.md > /dev/null 2>&1; chk "未記入テンプレートは不合格（異常系）" 1 $?
+python3 tools/make_handover.py --check dist/handover_template_v22.md > /dev/null 2>&1; chk "未記入テンプレートは不合格（異常系）" 1 $?
 python3 - "$TMP/h.md" "$TMP/h2.md" <<'PY'
 import pathlib, sys
 t = pathlib.Path(sys.argv[1]).read_text(encoding='utf-8')
@@ -39,10 +40,79 @@ pathlib.Path(sys.argv[2]).write_text(t, encoding='utf-8')
 PY
 python3 tools/make_handover.py --check "$TMP/h2.md" > /dev/null 2>&1; chk "全章を埋めれば合格する" 0 $?
 
+# ── 記録からの自動生成（v22 の中核）──
+# 本物の記録と同じ形（1行1レコードの JSONL）の見本を作って通す。
+# **見本で通ることは、本番で通ることを保証しない**ため、形式は実際の記録から採寸してある。
+python3 - "$TMP/t.jsonl" <<'PYT'
+import json, sys
+rows = [
+ {"type":"user","isSidechain":False,"timestamp":"2026-09-01T00:00:00Z","sessionId":"s1",
+  "cwd":"/tmp/x","gitBranch":"main","message":{"role":"user","content":"最初の依頼です。仕様はこうしてください。"}},
+ {"type":"assistant","isSidechain":False,"timestamp":"2026-09-01T00:01:00Z","sessionId":"s1",
+  "message":{"role":"assistant","content":[{"type":"thinking","thinking":"THINKING_MUST_NOT_APPEAR"},
+                                            {"type":"text","text":"承知しました。実装します。"}]}},
+ {"type":"assistant","isSidechain":False,"timestamp":"2026-09-01T00:02:00Z","sessionId":"s1",
+  "message":{"role":"assistant","content":[{"type":"tool_use","name":"Bash",
+                                            "input":{"command":"echo hello","description":"挨拶を出す"}}]}},
+ {"type":"assistant","isSidechain":False,"timestamp":"2026-09-01T00:03:00Z","sessionId":"s1",
+  "message":{"role":"assistant","content":[{"type":"tool_use","name":"Write",
+                                            "input":{"file_path":"out/a.py"}}]}},
+ {"type":"user","isSidechain":False,"timestamp":"2026-09-01T00:04:00Z","sessionId":"s1",
+  "message":{"role":"user","content":[{"type":"tool_result","is_error":True,"content":"コマンドが失敗した"}]}},
+ {"type":"user","isSidechain":False,"timestamp":"2026-09-01T00:05:00Z","sessionId":"s1",
+  "message":{"role":"user","content":"そこは違います。やめて別の方法にしてください。<system-reminder>自動注記</system-reminder>"}},
+ {"type":"assistant","isSidechain":True,"timestamp":"2026-09-01T00:06:00Z","sessionId":"s1",
+  "message":{"role":"assistant","content":[{"type":"text","text":"下請けの発言。引き継ぎに混ぜてはいけない。"}]}},
+]
+open(sys.argv[1],"w",encoding="utf-8").write("\n".join(json.dumps(r,ensure_ascii=False) for r in rows)+"\n")
+PYT
+python3 tools/make_handover.py --auto "$TMP/auto.md" --transcript "$TMP/t.jsonl" > /dev/null 2>&1
+chk "記録から引き継ぎを生成できる" 0 $?
+grep -q "最初の依頼です。仕様はこうしてください。" "$TMP/auto.md" && chk "依頼の原文が要約されず入る" 0 0 || chk "依頼の原文が要約されず入る" 0 1
+grep -q "承知しました。実装します。" "$TMP/auto.md" && chk "こちらの応答の原文が入る" 0 0 || chk "こちらの応答の原文が入る" 0 1
+grep -q "THINKING_MUST_NOT_APPEAR" "$TMP/auto.md" && chk "思考は載せない（ユーザーに示していないもの）" 0 1 || chk "思考は載せない（ユーザーに示していないもの）" 0 0
+grep -q "下請けの発言" "$TMP/auto.md" && chk "下請けエージェントの発言を混ぜない" 0 1 || chk "下請けエージェントの発言を混ぜない" 0 0
+grep -q "自動注記" "$TMP/auto.md" && chk "自動で差し込まれた注記を原文に混ぜない" 0 1 || chk "自動で差し込まれた注記を原文に混ぜない" 0 0
+grep -q "echo hello" "$TMP/auto.md" && chk "実行したコマンドが入る" 0 0 || chk "実行したコマンドが入る" 0 1
+grep -q "out/a.py" "$TMP/auto.md" && chk "編集したファイルが入る" 0 0 || chk "編集したファイルが入る" 0 1
+grep -q "コマンドが失敗した" "$TMP/auto.md" && chk "記録された失敗が入る" 0 0 || chk "記録された失敗が入る" 0 1
+grep -q "やめて別の方法に" "$TMP/auto.md" && chk "訂正・調整の発言が原文で入る" 0 0 || chk "訂正・調整の発言が原文で入る" 0 1
+grep -q "【要記入】" "$TMP/auto.md" && chk "理由の欄に【要記入】が置かれる" 0 0 || chk "理由の欄に【要記入】が置かれる" 0 1
+python3 tools/make_handover.py --check "$TMP/auto.md" > /dev/null 2>&1
+chk "【要記入】が残っていれば検査に落ちる（異常系）" 1 $?
+
+echo "── 受領確認（--receipt）──"
+python3 tools/make_handover.py --receipt "$TMP/auto.md" > "$TMP/r.txt" 2>&1
+chk "未記入が残る引き継ぎは受領不完全になる（異常系）" 1 $?
+grep -q "一致。生成時" "$TMP/r.txt" && chk "指紋が一致していることを報告する" 0 0 || chk "指紋が一致していることを報告する" 0 1
+grep -q "依頼の原文: 2" "$TMP/r.txt" && chk "受領した件数を数えて報告する" 0 0 || chk "受領した件数を数えて報告する" 0 1
+python3 - "$TMP/auto.md" "$TMP/tampered.md" <<'PYT'
+import pathlib, sys
+t = pathlib.Path(sys.argv[1]).read_text(encoding='utf-8')
+pathlib.Path(sys.argv[2]).write_text(t.replace('最初の依頼です', '書き換えられた依頼です'), encoding='utf-8')
+PYT
+# パイプで受けない：--receipt は不合格時に 1 で終わるため、pipefail が grep の成否を上書きしてしまう
+python3 tools/make_handover.py --receipt "$TMP/tampered.md" > "$TMP/rt.txt" 2>&1
+grep -q "指紋が一致しない" "$TMP/rt.txt" && chk "生成後に書き換えられたら検出する" 0 0 || chk "生成後に書き換えられたら検出する" 0 1
+# 【要記入】を埋めれば受領が完全になること
+python3 - "$TMP/auto.md" "$TMP/filled.md" <<'PYT'
+import pathlib, sys, re, hashlib
+t = pathlib.Path(sys.argv[1]).read_text(encoding='utf-8')
+old = re.search(r'"sha256": "([0-9a-f]{64})"', t).group(1)
+t = t.replace('【要記入】', '理由をここに書いた。十分な分量の記述である。')
+t = t.replace(old, 'PENDING-SHA256')
+t = t.replace('PENDING-SHA256', hashlib.sha256(t.encode('utf-8')).hexdigest())
+pathlib.Path(sys.argv[2]).write_text(t, encoding='utf-8')
+PYT
+python3 tools/make_handover.py --receipt "$TMP/filled.md" > /dev/null 2>&1
+chk "全部埋まっていれば受領が完全になる" 0 $?
+python3 tools/make_handover.py --receipt "$TMP/none.md" > /dev/null 2>&1
+chk "ファイルが無ければ異常終了（異常系）" 1 $?
+
 echo "── build_mini.py ──"
 python3 tools/build_mini.py > /dev/null 2>&1; chk "短縮版を生成できる" 0 $?
-[ -f dist/L0_core_card_mini_v21.md ] && chk "短縮版が出力される" 0 0 || chk "短縮版が出力される" 0 1
-grep -q "関門" dist/L0_core_card_mini_v21.md && chk "短縮版に関門が含まれる" 0 0 || chk "短縮版に関門が含まれる" 0 1
+[ -f "$(ls dist/L0_core_card_mini_v[0-9]*.md 2>/dev/null | tail -1)" ] && chk "短縮版が出力される" 0 0 || chk "短縮版が出力される" 0 1
+grep -q "関門" "$(ls dist/L0_core_card_mini_v[0-9]*.md 2>/dev/null | tail -1)" && chk "短縮版に関門が含まれる" 0 0 || chk "短縮版に関門が含まれる" 0 1
 
 echo "── install.py ──"
 FH="$TMP/fakehome"; mkdir -p "$FH/.claude"

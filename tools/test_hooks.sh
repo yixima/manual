@@ -78,6 +78,36 @@ rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-t
 r1=$(run "$(J 'これから実装に着手します。')"); r2=$(run "$(J 'これから実装に着手します。')")
 chk "同一応答の差し戻しは1回まで（無限ループ防止）" "2 0" "$r1 $r2"
 
+echo "── handover_receipt.py（引き継ぎの自動受領）──"
+HW=$(mktemp -d); mkdir -p "$HW/handover" "$HW/tools"
+cp tools/make_handover.py tools/handover_extract.py "$HW/tools/"
+hr() { echo "{\"cwd\":\"$HW\",\"session_id\":\"$1\"}" | python3 .claude/hooks/handover_receipt.py 2>&1; }
+
+# 引き継ぎが無いプロジェクトでは、何も出さない（無関係な場所で騒がないこと）
+[ -z "$(hr s0)" ] && chk "引き継ぎが無ければ何も出さない" 0 0 || chk "引き継ぎが無ければ何も出さない" 0 1
+chk "引き継ぎが無くてもセッションを止めない" 0 "$(echo "{\"cwd\":\"$HW\",\"session_id\":\"s0b\"}" | python3 .claude/hooks/handover_receipt.py >/dev/null 2>&1; echo $?)"
+
+# README のような、引き継ぎでない .md を誤って拾わないこと
+printf '# 受け口の説明\n\nここは引き継ぎファイルではない。\n' > "$HW/handover/README.md"
+[ -z "$(hr s1)" ] && chk "引き継ぎでない .md は拾わない（誤検知の防止）" 0 0 || chk "引き継ぎでない .md は拾わない（誤検知の防止）" 0 1
+
+# 本物の引き継ぎを置けば、受領確認が出る
+python3 - "$HW/t.jsonl" <<'PYH'
+import json, sys
+rows = [{"type":"user","isSidechain":False,"timestamp":"2026-09-01T00:00:00Z","sessionId":"h1",
+         "cwd":"/tmp/x","gitBranch":"main","message":{"role":"user","content":"引き継ぎの見本となる依頼である。"}}]
+open(sys.argv[1],"w",encoding="utf-8").write("\n".join(json.dumps(r,ensure_ascii=False) for r in rows)+"\n")
+PYH
+python3 tools/make_handover.py --auto "$HW/handover/x_handover_20260901_v1.md" --transcript "$HW/t.jsonl" >/dev/null 2>&1
+out=$(hr s2)
+echo "$out" | grep -q "引き継ぎの自動受領" && chk "引き継ぎがあれば受領確認を出す" 0 0 || chk "引き継ぎがあれば受領確認を出す" 0 1
+echo "$out" | grep -q "一致。生成時" && chk "完全性の照合結果を出す" 0 0 || chk "完全性の照合結果を出す" 0 1
+echo "$out" | grep -q "確かめる質問はしない" && chk "確認の往復をやめるよう指示する" 0 0 || chk "確認の往復をやめるよう指示する" 0 1
+[ -z "$(hr s2)" ] && chk "同じセッションで二度は出さない" 0 0 || chk "同じセッションで二度は出さない" 0 1
+[ -n "$(hr s3)" ] && chk "別のセッションでは改めて出す" 0 0 || chk "別のセッションでは改めて出す" 0 1
+chk "壊れた入力でも止まらない（異常系）" 0 "$(echo 'not json' | python3 .claude/hooks/handover_receipt.py >/dev/null 2>&1; echo $?)"
+rm -r "$HW"
+
 echo "── guard_delivery.py ──"
 g() { echo "$1" | python3 .claude/hooks/guard_delivery.py 2>/dev/null; }
 d() { g "$1" | python3 -c "import json,sys;s=sys.stdin.read();print(json.loads(s)['hookSpecificOutput']['permissionDecision'] if s.strip() else 'allow')"; }
