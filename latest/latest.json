@@ -3,6 +3,6 @@
   "issued": "2026年9月1日",
   "core_card": "https://raw.githubusercontent.com/yixima/manual/main/latest/L0_core_card.md",
   "all_in_one": "https://raw.githubusercontent.com/yixima/manual/main/latest/manual_all_in_one.md",
-  "sha256_core_card": "e2d0d53aa2c67475",
+  "sha256_core_card": "5f706f61b9e3e62a",
   "note": "版番号を含まない固定URL。中身だけが更新される。貼り直しは不要。"
 }
