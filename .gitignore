@@ -18,3 +18,7 @@ handover/*.md
 metrics/.handover-*
 metrics/.stopguard-*
 metrics/.terms-*
+
+# 発行担当の印。**リポジトリに含めない。**
+# 含めるとすべての複製が発行可能になり、「発行は1つのセッションだけ」という趣旨が壊れる。
+.claude/manual-session
