@@ -28,7 +28,15 @@ SECTIONS = ["1. 依頼の原文", "2. 確定した事実と決定", "3. 却下�
             "5. セッション中の調整・変更の経緯", "6. 失敗と、そこから得た改善", "7. 未完了のタスク",
             "8. 次に最初に行うこと", "9. 前提条件・数値前提", "10. 使用したコマンド・手順"]
 SAFE = re.compile(r'^[A-Za-z0-9._-]+$')
-TODO = '【要記入】'
+TODO = '【要記入】'          # **必須**。ここが埋まらない限り渡せない。
+OPT = '〔任意〕'             # **任意**。埋めれば精度は上がるが、検査は不合格にしない。
+# なぜ2種類に分けたか（2026-09-01）：
+#   すべての行に理由を要求した結果、1回の生成で 181 箇所の【要記入】が出た
+#   （ファイル107件・コミット38件それぞれに理由を求めていた）。
+#   **「必ず埋めよ」と「1行ごとに埋めよ」は同時に成立しない**——検査が現実に通らず、
+#   引き継ぎが完成しない状態になっていた（§3-14 自作した要件の相互矛盾）。
+#   よって理由を必須にする対象を、**重要な決定と大きな成果物**に絞った。
+#   個々のコミット・個々のファイルは、記録から自動で入る事実だけで足りる。
 MANIFEST_RE = re.compile(r'```handover-manifest\n(.*?)\n```', re.S)
 PENDING = 'PENDING-SHA256'
 
@@ -248,19 +256,28 @@ def auto(out, template, transcript=None, cwd=None, verbatim=True):
     # 2. 決定と理由 ── 決定の候補は履歴から出せるが、理由は記録に無い
     L.append("## 2. 確定した事実と決定（＋なぜそう決めたか）\n")
     L.append("> **理由は記録に残らない。ここはセッション自身が書く。** 理由が無い決定は、次のセッションで善意によって覆される（§3-14）。\n")
-    L.append("| # | 決定したこと | なぜそう決めたか | いつ |")
+    L.append("**とくに重要な決定（3件以内）** ——ここは**必ず**埋める。"
+             "次のセッションが方針を覆さないために、これだけは要る。\n")
+    L.append("| # | 決定したこと | なぜそう決めたか |")
+    L.append("|---|---|---|")
+    for i in (1, 2, 3):
+        L.append(f"| {i} | {TODO} | {TODO} |")
+    L.append("\n**このセッション中の変更の履歴（自動）** ——事実は記録から入っている。"
+             "理由の補足は任意であり、**空欄でも渡せる**。\n")
+    L.append("| # | 変更したこと | 補足（任意） | いつ |")
     L.append("|---|---|---|---|")
     rows = 0
     for ln in commits_in_session(d).splitlines():
         parts = ln.split('|', 2)
         if len(parts) == 3:
             rows += 1
-            L.append(f"| {parts[0]} | {parts[2]} | {TODO} | {parts[1]} |")
+            L.append(f"| {parts[0]} | {parts[2]} | {OPT} | {parts[1]} |")
     if not rows:
-        L.append(f"| 1 | {TODO} | {TODO} | |")
-    L.append("\n> 左の列は**このセッション中のコミット**から自動生成した"
+        L.append(f"| 1 | （このセッション中の変更は記録されていない） | {OPT} | |")
+    L.append("\n> 下の表は**このセッション中のコミット**から自動生成した"
              "（期間外の履歴は引き継ぎの対象ではないため含めない）。"
-             "**「なぜそう決めたか」は履歴に無い。必ず埋めること。**\n")
+             "**変更の内容そのものは記録に残っているため、1件ずつ理由を書く必要はない。**"
+             "書き残すべき理由は、上の「とくに重要な決定」に集約する。\n")
     L.append("---\n")
 
     # 3. 却下した案 ── 記録から機械的には取り出せない
@@ -275,16 +292,25 @@ def auto(out, template, transcript=None, cwd=None, verbatim=True):
     # 4. 発行したファイル ── 実際に書き換えたものを記録から取る
     L.append("## 4. 発行したすべてのファイル\n")
     L.append("> **一覧ではなく説明を書く。** 名前だけでは、次のセッションは中身を知らない。\n")
-    L.append("| ファイル | 操作 | 何のために作ったか・中に何が書いてあるか |")
+    L.append("**主な成果物（3件以内）** ——ここは**必ず**埋める。"
+             "次のセッションが「何を渡されたのか」を知るために、これだけは要る。\n")
+    L.append("| # | 成果物 | 何のために作ったか・中に何が書いてあるか |")
     L.append("|---|---|---|")
+    for i in (1, 2, 3):
+        L.append(f"| {i} | {TODO} | {TODO} |")
     touched = files_in_session(d)
+    L.append(f"\n**触ったファイルの一覧（自動・{len(touched)}件）** ——事実は記録から入っている。"
+             "個々の説明は任意であり、**空欄でも渡せる**。\n")
+    L.append("| ファイル | 操作 | 補足（任意） |")
+    L.append("|---|---|---|")
     for path, how in touched:
-        L.append(f"| `{path}` | {how} | {TODO} |")
+        L.append(f"| `{path}` | {how} | {OPT} |")
     if not touched:
-        L.append(f"| {TODO} | | {TODO} |")
+        L.append(f"| （このセッションで作成・編集したファイルは記録されていない） | | {OPT} |")
     L.append("\n> このセッションが**実際に作成・編集した**ファイルだけを、記録と git の差分から自動生成した"
              "（リポジトリ全体の一覧ではない。一覧は `git ls-files` でいつでも取れるため、"
-             "引き継ぐべきは「今回どれを触ったか」である）。**用途と内容は自分で埋めること。**\n")
+             "引き継ぐべきは「今回どれを触ったか」である）。"
+             "**1件ずつ用途を書く必要はない。書くべきは、上の「主な成果物」だけである。**\n")
     L.append("---\n")
 
     # 5. 調整の経緯 ── ユーザーが「変えてほしい」と述べた発言を原文で抜く
@@ -295,9 +321,9 @@ def auto(out, template, transcript=None, cwd=None, verbatim=True):
         for i, m in enumerate(d['corrections'], 1):
             L.append(f"**5-{i}（{jst(m['ts'])}）ユーザーの発言（原文）**\n")
             L.append(esc(m['text'][:1500]) + "\n")
-            L.append(f"- **何をどう変えたか**：{TODO}（変える前 → 変えた後）\n")
+            L.append(f"- **何をどう変えたか**：{OPT}（変える前 → 変えた後）\n")
     else:
-        L.append(f"（訂正・調整の合図を含む発言は検出されなかった。**心当たりがあれば手で追加する**）{TODO}\n")
+        L.append(f"（訂正・調整の合図を含む発言は検出されなかった。**心当たりがあれば手で追加する**）{OPT}\n")
     L.append("---\n")
 
     # 6. 失敗 ── ツールの異常終了・フックの差し戻しを記録から取る
@@ -308,7 +334,7 @@ def auto(out, template, transcript=None, cwd=None, verbatim=True):
     if d['errors']:
         for i, e in enumerate(d['errors'], 1):
             det = e['detail'].replace('|', '\\|').replace('\n', ' ')[:200]
-            L.append(f"| {i} | {jst(e['ts'])} | {e['kind']}：{det} | {TODO} | {TODO} |")
+            L.append(f"| {i} | {jst(e['ts'])} | {e['kind']}：{det} | {OPT} | {OPT} |")
     else:
         L.append(f"| 1 | | 記録上の異常終了は無し。**それでも、指摘を受けた失敗があれば書く** | {TODO} | {TODO} |")
     L.append("")
@@ -321,7 +347,7 @@ def auto(out, template, transcript=None, cwd=None, verbatim=True):
     L.append("|---|---|---|---|")
     if d['incomplete']:
         for i, m in enumerate(d['incomplete'], 1):
-            L.append(f"| {i} | {m['text'].replace('|', '/')} | {TODO} | 未着手 / 途中（未実行） |")
+            L.append(f"| {i} | {m['text'].replace('|', '/')} | {OPT} | 未着手 / 途中（未実行） |")
     else:
         L.append(f"| 1 | {TODO} | {TODO} | 未着手 / 途中（未実行） |")
     L.append("")
@@ -422,6 +448,7 @@ def auto(out, template, transcript=None, cwd=None, verbatim=True):
           f"編集したファイル {len(d['files'])} 件／失敗 {len(d['errors'])} 件")
     todo = todo_count(pathlib.Path(out).read_text(encoding='utf-8'))
     print(f"  残りは {todo} 箇所の {TODO}（＝**理由**。記録に残らないため、機械には書けない）。")
+    print(f"  〔任意〕の欄は埋めなくても渡せる。**必ず要るのは、重要な決定3件と主な成果物3件の理由だけ。**")
     print("  埋め終えたら `--check` を通すこと。通らないうちは渡さない。")
     return 0
 
