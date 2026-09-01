@@ -12,3 +12,9 @@ manual_v*_deliverables_*.zip
 # 共有する必要があるときだけ、中身を確認したうえで `git add -f` する。
 handover/*.md
 !handover/README.md
+
+# フックがセッションごとに置く目印（同じセッションで二度動かないようにするためのもの）。
+# セッション固有の値であり、引き継げない＝追跡しない。
+metrics/.handover-*
+metrics/.stopguard-*
+metrics/.terms-*

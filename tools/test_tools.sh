@@ -93,7 +93,9 @@ pathlib.Path(sys.argv[2]).write_text(t.replace('最初の依頼です', '書き�
 PYT
 # パイプで受けない：--receipt は不合格時に 1 で終わるため、pipefail が grep の成否を上書きしてしまう
 python3 tools/make_handover.py --receipt "$TMP/tampered.md" > "$TMP/rt.txt" 2>&1
-grep -q "指紋が一致しない" "$TMP/rt.txt" && chk "生成後に書き換えられたら検出する" 0 0 || chk "生成後に書き換えられたら検出する" 0 1
+grep -q "本文は生成時から変わっている" "$TMP/rt.txt" && chk "生成後に書き換えられたら検出する" 0 0 || chk "生成後に書き換えられたら検出する" 0 1
+# **整形と書き換えは機械で区別できない。** 区別できるかのように報告しないこと
+grep -q "区別することはできない" "$TMP/rt.txt" && chk "整形と書き換えを区別できないと明記する" 0 0 || chk "整形と書き換えを区別できないと明記する" 0 1
 # 【要記入】を埋めれば受領が完全になること
 python3 - "$TMP/auto.md" "$TMP/filled.md" <<'PYT'
 import pathlib, sys, re, hashlib

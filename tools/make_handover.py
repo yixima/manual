@@ -548,32 +548,97 @@ def check(path, template=None):
     return 0
 
 
+
+
+RE_ESCAPED = re.compile(r'\\([#*`>|_\[\]~-])')
+
+
+def unescape(text):
+    """記号の退避（`\#` `\*` など）を戻す。**構造を読むときだけ使う。**
+
+    経路によっては、見出しやコードブロックの記号が `\` で退避された姿で届く
+    （実測：Google Drive の自然言語読み出し）。退避されたままだと
+    **見出しも受領確認ブロックも見つからず、「全章が欠落」という誤った判定になる**。
+    指紋の照合は退避を戻さない原文に対して行う（書式が変わったことは、それ自体が情報である）。
+    """
+    return RE_ESCAPED.sub(r'\1', text)
+
+# ── 受領の3段階判定 ────────────────────────────────────────
+# **なぜ3段階が要るか**：引き継ぎファイルは、環境によっては**そのままの姿では届かない**。
+# 実測（2026-09-01）：Google Drive に text/markdown で保存したファイルを
+#   ・download（生のまま取得）→ **バイト単位で完全一致**
+#   ・read（自然言語表現として取得）→ **記号が `\` で退避され、連続する空白が詰められる**
+# つまり、経路によっては**中身は全部届いているのに指紋だけが合わない**ことが起きる。
+# ここで「不一致＝欠落」と断じると、正しく届いた引き継ぎを毎回はねてしまう（§3-11 代理指標による断定）。
+# よって、**指紋（書式まで含めた同一性）と、件数（項目の欠落）を分けて判定する。**
+RE_REQ = re.compile(r'^[\\#\s]*1-(\d+)\s*[（(]', re.M)     # 第1章の見出し「1-N（…）」
+RE_ASST = re.compile(r'^[\\#\s]*B-(\d+)\s*[（(]', re.M)     # 付録Bの見出し「B-N（…）」
+
+
+def recount(text):
+    """本文から数え直す。**記号の退避や空白の詰まりに影響されない数え方**にする。"""
+    return {"依頼の原文": len(RE_REQ.findall(text)),
+            "こちらの応答": len(RE_ASST.findall(text))}
+
 # ── ④受領 ──────────────────────────────────────────────────
 def receipt(path):
-    """受け取った側が実行する。**冒頭の確認作業を、質問ではなく照合で終わらせる。**"""
+    """受け取った側が実行する。**冒頭の確認作業を、質問ではなく照合で終わらせる。**
+
+    判定は3段階。
+      ① 指紋が一致        → 1文字も変わっていない。完全
+      ② 指紋は不一致だが件数は一致 → **項目の欠落は無い。書式だけが変わっている**
+                             （Drive の整形読み出し・チャットへの貼り付け等で起きる）
+      ③ 件数も不一致      → **欠落がある。** 何が足りないかを名指しして申告する
+    """
     p = pathlib.Path(path)
     if not p.exists():
         print(f"{path} が無い。", file=sys.stderr)
         return 1
-    t = p.read_text(encoding='utf-8')
-    man, ok = read_manifest(t)
-    print('── 引き継ぎの受領確認（L1 §10-5）──')
-    print(f"  ファイル : {p.name}（{len(t):,} 字）")
+    raw = p.read_text(encoding='utf-8')
+    # 指紋は原文に対して、構造（章・件数・記入欄）は退避を戻した写しに対して見る。
+    t = unescape(raw)
+    man, ok = read_manifest(raw)
     if man is None:
+        man, ok = read_manifest(t)[0], False
+    got = recount(t)
+    want = {k: v for k, v in (man.get('counts') or {}).items() if k in got} if man else {}
+    short = {k: (want[k], got[k]) for k in want if got[k] < want[k]}
+
+    print('── 引き継ぎの受領確認（L1 §10-5）──')
+    print(f"  ファイル : {p.name}（{len(raw):,} 字）")
+    if man is None:
+        level = 'unknown'
         print("  完全性   : 【不明】受領確認ブロックが無い。手書きの引き継ぎか、生成後に削られている。")
         print("             → **この場合、取りこぼしの有無は機械では確かめられない。**")
         print("               各章を読んだうえで、不足があればユーザーに申告すること。")
     elif ok:
-        print(f"  完全性   : 【確認済】一致。生成時（{man.get('generated_at')}）から1文字も変わっていない")
+        level = 'exact'
+        print(f"  完全性   : 【確認済】指紋が一致。生成時（{man.get('generated_at')}）から**1文字も変わっていない**")
         print(f"             sha256 {man.get('sha256','')[:32]}…")
+    elif not short:
+        level = 'reformatted'
+        print("  完全性   : 【要注意】**本文は生成時から変わっている。ただし項目の数は揃っている。**")
+        print("             指紋は一致しないが、本文から数え直した件数はマニフェストと一致する"
+              "（＝**途中で切れて届いた形跡は無い**）。")
+        print("             → 経路での整形（記号の退避・連続空白の詰まり）である可能性が高い。"
+              "**ただし、整形と中身の書き換えを機械で区別することはできない。**")
+        print("             → **生のまま取得し直せるなら、取り直すこと。** 取り直せないなら"
+              "この状態で進めてよいが、**原文の細部は原本と異なりうる**ことを踏まえる。")
     else:
-        print("  完全性   : 【要注意】指紋が一致しない。**生成後に本文が変わっている。**")
-        print("             → 途中で切れて貼られた可能性がある。元のファイルを取り直すこと。")
+        level = 'missing'
+        print("  完全性   : 【要注意】**欠落がある。** 件数が足りない：")
+        for k, (w, g) in short.items():
+            print(f"             {k}: マニフェスト {w} 件 → 本文に {g} 件（{w - g} 件不足）")
+        print("             → 途中で切れて貼られた可能性が高い。**元のファイルを取り直すこと。**")
+
     if man:
         print(f"  引き継ぎ元: セッション {man.get('session')}／`{man.get('cwd')}`／ブランチ `{man.get('branch')}`")
         print("  受領内容 :")
         for k, v in (man.get('counts') or {}).items():
-            print(f"             {k}: {v}")
+            mark = ''
+            if k in got:
+                mark = '  ← 本文で確認済' if got[k] >= v else f'  ← **本文には {got[k]} 件しかない**'
+            print(f"             {k}: {v}{mark}")
     miss = [s for s in SECTIONS if section_body(t, s) is None]
     todo = todo_count(t)
     print(f"  10章     : {'すべて存在する' if not miss else '欠落あり → ' + '／'.join(miss)}")
@@ -585,7 +650,7 @@ def receipt(path):
                   and not re.match(r'^\s*[-*\s]+$', ln) and TODO not in ln), '')
     print(f"  次の一手 : {first or '（第8章に記載が無い。ユーザーに確認すること）'}")
     print()
-    if man and ok and not miss and not todo:
+    if level in ('exact', 'reformatted') and not miss and not todo:
         print("  → **受領は完全である。冒頭の確認作業は、この照合をもって完了とする。**")
         print("    ユーザーに「理解できているか」を確かめる質問をする必要はない。")
         print("    そのうえで、第1章（依頼の原文）と付録B（応答の原文）を読んでから作業に入ること。")
