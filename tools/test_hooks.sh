@@ -77,6 +77,19 @@ chk "【型K】基準日を書けば通す" 0 "$(run "$(J "$tmok")")"
 rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
 r1=$(run "$(J 'これから実装に着手します。')"); r2=$(run "$(J 'これから実装に着手します。')")
 chk "同一応答の差し戻しは1回まで（無限ループ防止）" "2 0" "$r1 $r2"
+rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
+# 【型M】未確認の印を残したまま、不可逆・外向き操作の承認を求める応答は差し戻す（2026-09-01 の事案）
+u1='▶要裏取り：別環境で動くか／確信度〈未確認・推測〉。発行してよろしいでしょうか。— 状態：入力待ち　次：ご返答ください'
+chk "【型M】未確認のまま発行の承認を求めたら差し戻す" 2 "$(run "$(J "$u1")")"
+rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
+u2='【確認済】すべて実測しました。出典：`tools/build_dist.py`。発行してよろしいでしょうか。— 状態：入力待ち　次：ご返答ください'
+chk "【型M】裏取り済みなら承認を求めてよい" 0 "$(run "$(J "$u2")")"
+rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
+u3='▶要裏取り：無関係の件／確信度〈未確認・推測〉。これは本件の可否には影響しない。発行してよろしいでしょうか。— 状態：入力待ち　次：ご返答ください'
+chk "【型M】影響しない理由を明記すれば通す（黙って通さない）" 0 "$(run "$(J "$u3")")"
+rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
+u4='▶要裏取り：別環境で動くか／確信度〈未確認・推測〉。先に確かめます。— 状態：実行中　次：不要'
+chk "【型M】承認を求めていなければ通す（過剰検知しない）" 0 "$(run "$(J "$u4")")"
 
 echo "── handover_receipt.py（引き継ぎの自動受領）──"
 HW=$(mktemp -d); mkdir -p "$HW/handover" "$HW/tools"
@@ -123,6 +136,16 @@ hd=$(python3 -c 'import json;print(json.dumps({"tool_name":"Bash","tool_input":{
 chk "ヒアドキュメント内の危険コマンド文字列は許可（誤検知の回帰）" "allow" "$(d "$hd")"
 hd2=$(python3 -c 'import json;print(json.dumps({"tool_name":"Bash","tool_input":{"command":"cat > t.sh <<\x27EOF\x27\nhello\nEOF\n" + "rm -rf" + " /tmp/y"}}))')
 chk "ヒアドキュメントの後の実行は拒否" "deny" "$(d "$hd2")"
+# §0-4 発行の場所の一本化：指定されていないセッションからの発行を機械的に止める
+dc() { g "$1" | python3 -c "import json,sys;s=sys.stdin.read();print(json.loads(s)['hookSpecificOutput']['permissionDecision'] if s.strip() else 'allow')"; }
+J0() { python3 -c "import json,sys;print(json.dumps({'tool_name':'Bash','tool_input':{'command':sys.argv[1]},'cwd':sys.argv[2]}))" "$1" "$2"; }
+UNMARKED=$(mktemp -d)
+chk "§0-4 publish.sh を拒否（発行担当でないセッション）" "deny" "$(dc "$(J0 './tools/publish.sh' "$UNMARKED")")"
+chk "§0-4 main への push を拒否" "deny" "$(dc "$(J0 'git push origin HEAD:refs/heads/main' "$UNMARKED")")"
+chk "作業ブランチへの push は許可（過剰検知しない）" "allow" "$(dc "$(J0 'git push -u origin claude/my-work' "$UNMARKED")")"
+mkdir -p "$UNMARKED/.claude" && touch "$UNMARKED/.claude/manual-session"
+chk "発行担当と明示されていれば許可" "allow" "$(dc "$(J0 './tools/publish.sh' "$UNMARKED")")"
+rm -r "$UNMARKED"
 
 echo "────────────────────────────"
 echo "合格 $pass 件 / 不合格 $fail 件"

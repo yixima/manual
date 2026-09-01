@@ -62,8 +62,8 @@ source/                  ← 原本 v13 / v15（改変せず保持）
 ```bash
 python3 tools/audit_activation.py dist/L1_manual_v22.md --records dist/L2_records_v22.md   # 発動構造の検査
 python3 tools/build_dist.py                                                                # 配布前の整合検査
-./tools/test_hooks.sh                                                                      # フックの起動検証（45件）
-./tools/test_tools.sh                                                                      # スクリプトの起動検証（69件）
+./tools/test_hooks.sh                                                                      # フックの起動検証（53件）
+./tools/test_tools.sh                                                                      # スクリプトの起動検証（70件）
 ```
 
 ## 配布（一度きり。以後は貼り直し不要）
@@ -138,7 +138,7 @@ python3 tools/make_handover.py --receipt handover/myproject_handover_20260901_v1
 | コアカードの行数 | （分離なし） | （分離なし） | **144行**（上限200行） |
 | 遵守度の測定手段 | 無し | 無し | **フックによる全ターン記録＋盲検採点** |
 | 機械的強制 | 無し | 無し | **6種（`[Code]`）** |
-| 自動テスト | 無し | 無し | **114件（フック45・スクリプト69）** |
+| 自動テスト | 無し | 無し | **123件（フック53・スクリプト70）** |
 
 **v15 の改訂履歴が掲げた「到達率100%・捕捉率15/15」は、独立の再実行で再現できなかった**（98%・14/15）。
 判定基準が本文に無く第三者が再現できないことが原因であり、v16 では判定基準をコードとして公開している（`tools/audit_activation.py`）。

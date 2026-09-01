@@ -7,7 +7,8 @@
     "unsourced_verified_label": true,
     "unexplained_incomplete": true,
     "undefined_jargon": true,
-    "undated_time_reference": true
+    "undated_time_reference": true,
+    "unverified_before_irreversible": true
   },
   "_degradation_comment": "劣化の判定値。実測に合わせて自由に変えてよい。主指標は負荷スコア（会話の記録MB ＋ テキスト成果物MB ＋ バイナリ成果物MB×binary_weight）。往復数は補助指標であり、単独では申告水準に達しない。基準点＝往復864回・会話2.5MB・テキスト成果物1.4MB でスコア約3.9、体感良好（2026-08-28 実測）。",
   "degradation": {

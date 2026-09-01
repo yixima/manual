@@ -37,7 +37,8 @@ def load_cfg(cwd):
                                       "unsourced_verified_label": True,
                                       "unexplained_incomplete": True,
                                       "undefined_jargon": True,
-                                      "undated_time_reference": True}}
+                                      "undated_time_reference": True,
+                                      "unverified_before_irreversible": True}}
     for cand in _candidates(cwd, 'manual-hooks.json'):
         try:
             cfg.update(json.loads(cand.read_text(encoding='utf-8')))
@@ -83,6 +84,29 @@ def unexplained(msg, term):
             return False
     return True
 
+# R7【型M】未確認の印を残したまま、不可逆・外向き操作の承認を求めている（L1 §3-2／§12-1）
+#   **確信度ラベルは「確かめた」ことの証明ではなく、「まだ確かめていない」ことの申告である。**
+#   申告した本人がそれを握りつぶし、「発行してよいですか」と尋ねてしまう事故を止める。
+#   （2026-09-01 の事案：Cowork での動作を【未確認・推測】と書き「要裏取り」まで添えたうえで、
+#     裏取りをせずに発行の承認を求めた。ユーザーの指摘で止まった。L2 記録参照）
+RE_UNVERIFIED = re.compile(r'(要裏取り|【未確認・推測】|【不明】)')
+RE_IRREVERSIBLE = re.compile(r'(発行|公開|リリース|本番|送信|配信|削除|上書き|デプロイ|マージ|push)')
+RE_ASKING = re.compile(r'(してよろしい|して良い|してもよ|進めてよ|進めますか|よろしいでしょうか|よろしいですか|'
+                       r'ご承認|承認をお願い|許可をお願い|判断をお願い|指示をお願い)')
+# 未確認が本件と無関係だと判断したときは、その旨を明記すれば通す。
+# **黙って通さない。理由を書かせる**ことが目的である。
+ESCAPE_PHRASE = '本件の可否には影響しない'
+
+def unverified_before_irreversible(msg):
+    """同じ行に「不可逆・外向きの操作」と「承認を求める言い回し」が並んでいるかで判定する。
+    離れた位置の語をつなげて判定すると誤検知が増えるため、行単位に限る。"""
+    if not RE_UNVERIFIED.search(msg) or ESCAPE_PHRASE in msg:
+        return False
+    for ln in msg.splitlines():
+        if RE_IRREVERSIBLE.search(ln) and RE_ASKING.search(ln):
+            return True
+    return False
+
 # R6【型K】日時に依存する記述に基準日が無い（L1 §3-7）
 RE_TIMEREF = re.compile(r'(今日|本日|現在|最新|今月|今週|来週|来月|昨日|明日|締切|期限)')
 RE_DATE = re.compile(r'(\d{4}[-/年]\d{1,2}[-/月]\d{1,2}|\d{1,2}月\d{1,2}日|基準[:：]|JST|UTC)')
@@ -119,6 +143,13 @@ def evaluate(msg, cfg, cwd='.', session='x'):
     if r.get("undated_time_reference", True) and RE_TIMEREF.search(msg) and not RE_DATE.search(msg) and len(msg) > 300:
         viol.append(("型K", "「今日」「現在」「最新」など日時に依存する記述があるが、基準となる日付が書かれていない。"
                             "毎ターン注入される現在日時を基準にし、本文に基準日を明記する（§3-7）。"))
+    if r.get("unverified_before_irreversible", True) and unverified_before_irreversible(msg):
+        viol.append(("型M", "**未確認の項目を残したまま、不可逆・外向きの操作（発行・公開・送信・削除など）の"
+                            "承認を求めている。** 確信度ラベルや「要裏取り」は、"
+                            "**確かめた証明ではなく、まだ確かめていないという申告である。**"
+                            "①その裏取りを先に済ませる、②それが無理なら、"
+                            f"「{ESCAPE_PHRASE}」理由を本文に明記する——のいずれかを行うこと。"
+                            "**未確認の印は「次へ進んでよい理由」ではなく「進んではいけない印」である**（§3-2／§12-1）。"))
     contract = {
         "has_label": bool(re.search(r'【(確認済|未確認・推測|不明)】', msg)),
         "has_state_line": bool(RE_STATE.search(msg)),
