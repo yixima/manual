@@ -28,7 +28,7 @@ python3 tools/build_dist.py > /dev/null 2>&1; chk "復元後は再び合格す�
 
 echo "── make_handover.py ──"
 python3 tools/make_handover.py --new "$TMP/h.md" > /dev/null 2>&1; chk "雛形を生成できる" 0 $?
-python3 tools/make_handover.py --check dist/handover_template_v25.md > /dev/null 2>&1; chk "未記入テンプレートは不合格（異常系）" 1 $?
+python3 tools/make_handover.py --check dist/handover_template_v26.md > /dev/null 2>&1; chk "未記入テンプレートは不合格（異常系）" 1 $?
 python3 - "$TMP/h.md" "$TMP/h2.md" <<'PY'
 import pathlib, sys
 t = pathlib.Path(sys.argv[1]).read_text(encoding='utf-8')
@@ -80,6 +80,26 @@ grep -q "やめて別の方法に" "$TMP/auto.md" && chk "訂正・調整の発�
 grep -q "【要記入】" "$TMP/auto.md" && chk "理由の欄に【要記入】が置かれる" 0 0 || chk "理由の欄に【要記入】が置かれる" 0 1
 python3 tools/make_handover.py --check "$TMP/auto.md" > /dev/null 2>&1
 chk "【要記入】が残っていれば検査に落ちる（異常系）" 1 $?
+
+# --- 回帰（v26）：理由を書き足すと指紋が外れる。--seal で封をし直せば --check が通ること ---
+# 実測で見つけた設計の矛盾。「理由を埋めよ」と「指紋を保て」が同時に成立していなかった。
+python3 - "$TMP/auto.md" "$TMP/sealed.md" <<'PYT'
+import pathlib, sys
+t = pathlib.Path(sys.argv[1]).read_text(encoding='utf-8')
+pathlib.Path(sys.argv[2]).write_text(t.replace('【要記入】', '理由をここに書いた。十分な分量の記述である。'), encoding='utf-8')
+PYT
+python3 tools/make_handover.py --check "$TMP/sealed.md" > "$TMP/sc1.txt" 2>&1
+chk "理由を埋めただけでは指紋が外れて落ちる（異常系）" 1 $?
+grep -q -- "--seal" "$TMP/sc1.txt" && chk "落ちたとき --seal を実行せよと案内する" 0 0 || chk "落ちたとき --seal を実行せよと案内する" 0 1
+python3 tools/make_handover.py --seal "$TMP/sealed.md" > /dev/null 2>&1
+chk "--seal で封をし直せる" 0 $?
+python3 tools/make_handover.py --check "$TMP/sealed.md" > /dev/null 2>&1
+chk "封をし直せば --check が通る（回帰）" 0 $?
+python3 tools/make_handover.py --receipt "$TMP/sealed.md" > "$TMP/sr.txt" 2>&1
+chk "封をし直した引き継ぎは受領も完全になる" 0 $?
+grep -q "一致。生成時" "$TMP/sr.txt" && chk "封のあとも指紋一致として報告する" 0 0 || chk "封のあとも指紋一致として報告する" 0 1
+python3 tools/make_handover.py --seal "$TMP/sealed.md" > "$TMP/sr2.txt" 2>&1
+grep -q "封をし直す必要は無い" "$TMP/sr2.txt" && chk "一致しているファイルへの --seal は何もしない" 0 0 || chk "一致しているファイルへの --seal は何もしない" 0 1
 
 echo "── 受領確認（--receipt）──"
 python3 tools/make_handover.py --receipt "$TMP/auto.md" > "$TMP/r.txt" 2>&1

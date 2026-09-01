@@ -46,7 +46,11 @@ python3 tools/make_handover.py --auto handover/projectname_handover_20260901_v1.
 **機械に書けないもの**：②決定の理由 ③却下した案 ⑧次の一手 ⑨前提条件。
 ——**「何をしたか」は記録に残るが、「なぜそうしたか」は残らない。** そこには `【要記入】` が置かれる。
 
+理由を書き足すと、生成時に確定させた指紋（sha256）が外れる。**これは正常である。**
+書き終えたことを宣言して封をし直してから、検査を通す。
+
 ```bash
+python3 tools/make_handover.py --seal  handover/projectname_handover_20260901_v1.md
 python3 tools/make_handover.py --check handover/projectname_handover_20260901_v1.md
 ```
 

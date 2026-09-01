@@ -5,6 +5,7 @@
   --auto OUT      セッションの記録から**中身まで**埋めた引き継ぎファイルを作る（`[Code]` 限定）
   --new  OUT      記録が無い環境向け。テンプレートを複製し、機械で分かる部分だけ埋める
   --check FILE    書き上げた引き継ぎファイルが、渡せる状態かを検査する
+  --seal FILE     理由を書き加えたあとに封（指紋）をし直す。--check の前に1回だけ
   --receipt FILE  受け取った引き継ぎファイルの完全性を照合し、受領確認を印字する
 
 **設計の中心にある考え方**
@@ -449,7 +450,8 @@ def auto(out, template, transcript=None, cwd=None, verbatim=True):
     todo = todo_count(pathlib.Path(out).read_text(encoding='utf-8'))
     print(f"  残りは {todo} 箇所の {TODO}（＝**理由**。記録に残らないため、機械には書けない）。")
     print(f"  〔任意〕の欄は埋めなくても渡せる。**必ず要るのは、重要な決定3件と主な成果物3件の理由だけ。**")
-    print("  埋め終えたら `--check` を通すこと。通らないうちは渡さない。")
+    print("  埋め終えたら **`--seal` で封をし直してから** `--check` を通すこと。"
+          "通らないうちは渡さない。")
     return 0
 
 
@@ -559,7 +561,9 @@ def check(path, template=None):
         print("  [ok] 受領確認ブロックがあり、指紋が本文と一致している")
     else:
         ng.append("受領確認ブロックの指紋が本文と一致しない（生成後に本文が書き換わっている）。"
-                  "内容を確定させてから `--auto` で作り直すか、指紋の行を削ること")
+                  "**理由を書き終えたのなら、これは正常である。** "
+                  "`python3 tools/make_handover.py --seal <このファイル>` "
+                  "で封をし直してから、もう一度 `--check` を通すこと")
     if ng:
         for x in ng:
             print(f"  [NG] {x}")
@@ -608,6 +612,52 @@ def recount(text):
             "こちらの応答": len(RE_ASST.findall(text))}
 
 # ── ④受領 ──────────────────────────────────────────────────
+def seal(path):
+    """**理由を書き加えたあとに、封をし直す。**
+
+    なぜ必要か（実測で見つけた設計の矛盾。L2 記録参照）：
+    `--auto` は生成した瞬間の本文で指紋（sha256）を確定させる。ところがこの仕組みは、
+    生成後に**人が理由を書き足すことを前提にしている**（機械には書けないため）。
+    つまり「理由を埋めよ」と「指紋を保て」は**同時に成立しない**——
+    理由を埋めた瞬間に指紋が外れ、`--check` が構造上ぜったいに通らなくなる。
+    実際、v24 の引き継ぎは 17 箇所の未記入を残したまま、一度も検査を通っていなかった。
+
+    直し方は「指紋の検査をやめる」ではない（それでは欠落を検知できなくなる）。
+    **書き終えたことを人が宣言し、その時点の本文で封をし直す**手順を足す。
+    件数も本文から数え直して入れ直すため、封のあとの `--receipt` は正しく働く。
+    """
+    p = pathlib.Path(path)
+    if not p.exists():
+        print(f"{path} が無い。", file=sys.stderr)
+        return 1
+    raw = p.read_text(encoding='utf-8')
+    man, ok = read_manifest(raw)
+    if man is None:
+        print("  [--] 受領確認ブロックが無い。封をする対象が無い（手書きの引き継ぎ）。")
+        return 0
+    if ok:
+        print("  [ok] すでに指紋は本文と一致している。封をし直す必要は無い。")
+        return 0
+    old = man.get('sha256', '')
+    # 件数を本文から数え直す。理由を書き足しても件数は変わらないはずだが、
+    # 章ごと削るような編集をしたときに、封が嘘をつかないようにする。
+    got = recount(unescape(raw))
+    for k in list((man.get('counts') or {}).keys()):
+        if k in got:
+            man['counts'][k] = got[k]
+    man['sealed_at'] = datetime.datetime.now().astimezone().isoformat(timespec='seconds')
+    man['sha256'] = PENDING
+    body = MANIFEST_RE.sub(
+        lambda m: m.group(0).replace(m.group(1), json.dumps(man, ensure_ascii=False, indent=2)),
+        raw, count=1)
+    digest = hashlib.sha256(body.encode('utf-8')).hexdigest()
+    p.write_text(body.replace(PENDING, digest), encoding='utf-8')
+    print(f"{path} に封をし直した。")
+    print(f"  指紋 : {old[:16]}… → {digest[:16]}…")
+    print("  → もう一度 `--check` を通すこと。通ってはじめて渡せる。")
+    return 0
+
+
 def receipt(path):
     """受け取った側が実行する。**冒頭の確認作業を、質問ではなく照合で終わらせる。**
 
@@ -692,6 +742,8 @@ def main():
     g.add_argument('--auto', metavar='OUT', help='セッションの記録から中身まで埋めて作る（[Code] 限定）')
     g.add_argument('--new', metavar='OUT', help='テンプレートを複製する（記録が無い環境向け）')
     g.add_argument('--check', metavar='FILE', help='渡せる状態かを検査する')
+    g.add_argument('--seal', metavar='FILE',
+                   help='理由を書き加えたあとに封（指紋）をし直す。--check の前に1回')
     g.add_argument('--receipt', metavar='FILE', help='受け取った側が完全性を照合する')
     ap.add_argument('--template', default=None)
     ap.add_argument('--transcript', default=None, help='記録ファイルを明示する（既定は自動検出）')
@@ -704,6 +756,8 @@ def main():
         return new(a.new, tpl)
     if a.check:
         return check(a.check, tpl)
+    if a.seal:
+        return seal(a.seal)
     return receipt(a.receipt)
 
 
