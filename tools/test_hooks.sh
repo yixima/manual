@@ -69,6 +69,18 @@ rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test
 chk "【型I】実際に未完了が残っていれば差し戻す" 2 "$(run "$(J '調査は終わりました。未完了が残っています。')")"
 rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test
 chk "【型I】中断理由（承認待ち）が書いてあれば通す" 0 "$(run "$(J '【この応答で完了したこと】調査。【未完了】実装（承認待ちのため中断）。— 状態：入力待ち　次：ご承認ください')")"
+# 回帰テスト（v27）：規則そのものを説明した文で発火しない（2026-09-01 の誤検知2件目）
+# 引用・鉤括弧・コードの中身は、この応答が報告している作業ではない。
+rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test
+desc=$(python3 -c "print('判定の仕組みを説明します。'*20 + '判定を「未完了という語が出たか」から「実際に未完了が残っていると述べているか」へ絞りました。— 状態：完了　次：不要')")
+chk "【型I】規則を説明した文（鉤括弧の中）では発火しない（誤検知の回帰）" 0 "$(run "$(J "$desc")")"
+rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test
+quoted=$(python3 -c "print('報告します。'*30 + chr(10) + '> 残りの作業があります' + chr(10) + '作業は全部終わりました。— 状態：完了　次：不要')")
+chk "【型I】引用ブロックの中の未完了では発火しない（誤検知の回帰）" 0 "$(run "$(J "$quoted")")"
+rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test
+done_line=$(python3 -c "print('作業の報告です。'*30 + '状態：完了　次：不要')")
+chk "【型I】状態行が「完了」なら本人の宣言を優先して通す" 0 "$(run "$(J "$done_line")")"
+rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
 rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
 jarg=$(python3 -c "print('詳しい説明。'*60 + 'フックを使って強制します。出力契約も適用します。')")
 chk "【型J】初出の専門用語に説明が無ければ差し戻す" 2 "$(run "$(J "$jarg")")"
