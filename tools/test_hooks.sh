@@ -20,8 +20,18 @@ echo "$out" | grep -qE "[0-9]{4}-[0-9]{2}-[0-9]{2}" && chk "実測した日付�
 chk "入力が空でも落ちない" 0 "$(echo '' | python3 .claude/hooks/inject_gate.py >/dev/null 2>&1; echo $?)"
 # 劣化判定＝負荷スコア方式（往復数は補助指標）
 W=$(mktemp -d); mkdir -p "$W/dist"
+# 記録は「実際の往復（ユーザーの発言）」と「道具の呼び出し・結果」が混在する。
+# 往復数は**前者だけ**を数えなければならない（v30 の修正。L2 記録参照）。
 mkjs() { python3 -c "
-import sys,pathlib;pathlib.Path(sys.argv[1]).write_text('{\"x\":1}\n'*int(sys.argv[2]))" "$W/t.jsonl" "$1"; }
+import sys,pathlib,json
+turns=int(sys.argv[2]); noise=int(sys.argv[3])
+rows=[]
+for i in range(turns):
+    rows.append({'type':'user','message':{'role':'user','content':'依頼です'}})
+    rows.append({'type':'assistant','message':{'role':'assistant','content':[{'type':'text','text':'はい'}]}})
+for i in range(noise):
+    rows.append({'type':'user','message':{'role':'user','content':[{'type':'tool_result','content':'結果'}]}})
+pathlib.Path(sys.argv[1]).write_text(''.join(json.dumps(r,ensure_ascii=False)+chr(10) for r in rows),encoding='utf-8')" "$W/t.jsonl" "$1" "${2:-0}"; }
 mkbin() { python3 -c "
 import sys,pathlib
 d=pathlib.Path(sys.argv[1])
@@ -29,17 +39,23 @@ for f in d.glob('*.pptx'): f.unlink()
 for i in range(int(sys.argv[2])): (d/f'deck_{i}.pptx').write_bytes(b'x'*2_000_000)" "$W/dist" "$1"; }
 gate() { echo "{\"cwd\":\"$W\",\"transcript_path\":\"$W/t.jsonl\"}" | python3 .claude/hooks/inject_gate.py; }
 
-mkjs 100; mkbin 0
+mkjs 20; mkbin 0
 gate | grep -q "劣化" && chk "軽い作業では警告が出ない" 0 1 || chk "軽い作業では警告が出ない" 0 0
 mkbin 6
-gate | grep -q "§0-5 申告水準" && chk "スライド6本(12MB)は往復380回未満でも申告水準" 0 0 || chk "スライド6本(12MB)は往復380回未満でも申告水準" 0 1
+gate | grep -q "§0-5 申告水準" && chk "スライド6本(12MB)は往復が少なくても申告水準" 0 0 || chk "スライド6本(12MB)は往復が少なくても申告水準" 0 1
 gate | grep -q "バイナリ成果物" && chk "内訳にバイナリ成果物が表示される" 0 0 || chk "内訳にバイナリ成果物が表示される" 0 1
-mkbin 0; mkjs 700
-gate | grep -q "§0-5 注意水準" && chk "往復700回は補助指標として注意水準どまり" 0 0 || chk "往復700回は補助指標として注意水準どまり" 0 1
+mkbin 0; mkjs 250
+gate | grep -q "§0-5 注意水準" && chk "往復250回は補助指標として注意水準どまり" 0 0 || chk "往復250回は補助指標として注意水準どまり" 0 1
 gate | grep -q "§0-5 申告水準" && chk "往復数だけでは申告水準に達しない（代理指標の降格）" 0 1 || chk "往復数だけでは申告水準に達しない（代理指標の降格）" 0 0
-mkjs 1300
-gate | grep -q "§0-5 申告水準" && chk "往復1200回超なら補助指標でも申告水準" 0 0 || chk "往復1200回超なら補助指標でも申告水準" 0 1
-mkjs 100; python3 -c "
+# 回帰（v30）：往復数は**どれだけ多くても**単独では申告水準に達しない。
+# 以前は「1200回超なら申告」と実装しており、コアカードの規定と矛盾していた。
+mkjs 5000
+gate | grep -q "§0-5 申告水準" && chk "往復5000回でも単独では申告水準に達しない（回帰）" 0 1 || chk "往復5000回でも単独では申告水準に達しない（回帰）" 0 0
+# 回帰（v30）：道具の結果の行を往復として数えない。
+# 記録の行数を往復数と取り違えており、実測で約38倍にずれていた。
+mkjs 10 3000
+gate | grep -q "§0-5" && chk "道具の結果ばかりの記録では往復と数えない（回帰）" 0 1 || chk "道具の結果ばかりの記録では往復と数えない（回帰）" 0 0
+mkjs 20; python3 -c "
 import pathlib,sys;(pathlib.Path(sys.argv[1])/'big.pdf').write_bytes(b'x'*6_000_000)" "$W/dist"
 gate | grep -q "ダウンロードが失敗しやすい" && chk "単一ファイル5MB超を検出する" 0 0 || chk "単一ファイル5MB超を検出する" 0 1
 gate | grep -q "作業を止める理由にはならない" && chk "申告水準でも中断を促さない" 0 0 || chk "申告水準でも中断を促さない" 0 1

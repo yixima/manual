@@ -41,9 +41,14 @@ GATE = """[汎用マニュアル / 関門（毎ターン自動注入・環境=Co
 # 中でも**バイナリ成果物（スライド・表計算・PDF・画像）は、テキストよりはるかに重い**。
 # 理由＝圧縮された中身が展開されて読み込まれ、プレビュー生成や再読込で何度も文脈に載るため。
 #
-# 実測の基準点（2026-08-28）：
-#   往復864回／会話の記録2.5MB／生成物1.4MB（すべてテキスト）→ ユーザー報告「感度は悪くない」
-#   → スコア約3.9。したがって注意水準はこれより十分上に置く。
+# 実測の基準点：
+#   2026-09-02：**実往復56回**／会話の記録5.1MB／生成物0.7MB（すべてテキスト）
+#     → スコア5.8。ユーザー報告「スライドやパワポなど容量のあるファイルを制作していないので
+#       比較的まだ快調」。**注意水準8はこれより上にあり、正しく黙っていた。**
+#   2026-08-28 の基準点（往復864回）は**記録ファイルの行数を往復数と取り違えていた**ため破棄した。
+#     行数は、道具の呼び出し・その結果・思考の1つ1つが1行になる。上の実測では
+#     **2153行に対して実際の往復は56回**——約38倍にずれる。
+#     行数で「往復1200回」を超えたと判定していたが、**実際の往復は56回だった**（L2 記録参照）。
 #
 # 負荷スコア（MB相当）＝ 会話の記録(MB) + テキスト成果物(MB) + バイナリ成果物(MB)×重み
 BINARY_EXT = {'.pptx', '.potx', '.xlsx', '.xlsm', '.docx', '.pdf', '.png', '.jpg', '.jpeg',
@@ -55,8 +60,10 @@ DEFAULTS = {
     "report_score": 20.0,     # 申告水準：申告する。ただし作業は止めない
     # バイナリ成果物の重み（テキストの何倍として数えるか）。実測に合わせて調整する
     "binary_weight": 3.0,
-    # 往復数（補助指標。単独では判断しない）
-    "notice_turns": 600, "report_turns": 1200,
+    # 往復数（**補助指標**。単独では申告水準に達しない。§0-5）
+    # 実往復の数で数える（記録ファイルの行数ではない）。実測 56 回でスコア5.8だったため、
+    # 注意水準は 200 回、申告への寄与はしない（下の判定で report には積まない）。
+    "notice_turns": 200,
     # 単一ファイルの上限（ダウンロード失敗の防止）
     "max_single_file": 5_000_000,
     # 成果物を探す場所
@@ -100,6 +107,37 @@ def artifact_load(cwd, T):
                 continue
     return text_mb + bin_mb * T["binary_weight"], (text_mb, bin_mb, n_bin), oversize
 
+def count_turns(path):
+    """**実際の往復数**を数える。記録ファイルの行数ではない。
+
+    行数を往復数として使っていたのは誤りである（2026-09-02 に実測で発覚）。
+    記録には、道具の呼び出し・その結果・思考の1つ1つが**別々の行**として入る。
+    実測では **2153行に対して実際の往復は56回**——約38倍にずれていた。
+    その結果、まだ快調なセッションが「往復1200回超」として申告水準に達していた。
+
+    ここで数えるのは「ユーザーが実際に発言した回数」である。
+    道具の結果（tool_result）や下請けエージェントの発言は**往復ではない**。
+    """
+    n = 0
+    try:
+        for ln in path.open(encoding='utf-8', errors='replace'):
+            try:
+                d = json.loads(ln)
+            except Exception:
+                continue
+            if d.get('type') != 'user' or d.get('isSidechain'):
+                continue
+            c = d.get('message', {}).get('content')
+            if isinstance(c, str):
+                n += 1
+            elif isinstance(c, list) and any(
+                    isinstance(x, dict) and x.get('type') == 'text' for x in c):
+                n += 1                    # 道具の結果だけの行は往復に数えない
+    except Exception:
+        pass
+    return n
+
+
 def degradation(data):
     """負荷スコアで判定する。往復数は補助指標であり、単独では申告水準に達しない。"""
     cwd = pathlib.Path(data.get('cwd') or os.getcwd())
@@ -110,7 +148,7 @@ def degradation(data):
         p = pathlib.Path(data.get('transcript_path') or '')
         if p.exists():
             talk_mb = p.stat().st_size / 1_000_000
-            turns = sum(1 for _ in p.open(encoding='utf-8', errors='replace'))
+            turns = count_turns(p)
     except Exception:
         pass
 
@@ -129,10 +167,12 @@ def degradation(data):
         report.append(f"{detail}　※申告水準 {T['report_score']:g}")
     elif score >= T["notice_score"]:
         notice.append(f"{detail}　※注意水準 {T['notice_score']:g}")
-    if turns >= T["report_turns"]:
-        report.append(f"往復が約 {turns} 回（申告 {T['report_turns']} 回）")
-    elif turns >= T["notice_turns"] and not notice and not report:
-        notice.append(f"往復 約{turns} 回（補助指標）")
+    # **往復数は補助指標である。単独では申告水準に達しない**（§0-5）。
+    # ここで report に積まないのが要点——積むと、コアカードの
+    # 「往復数は単独では判断しない」という規定と、実装が矛盾する（§3-14）。
+    # 実際にその矛盾が起き、快調なセッションに申告を出し続けていた（L2 記録参照）。
+    if turns >= T["notice_turns"] and not notice and not report:
+        notice.append(f"往復 {turns} 回（補助指標。単独では申告水準に達しない）")
     for name, size in oversize[:3]:
         report.append(f"{name} が {size/1_000_000:.0f}MB"
                       f"（{T['max_single_file']/1_000_000:.0f}MB 超はダウンロードが失敗しやすい）")
