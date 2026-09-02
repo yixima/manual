@@ -47,6 +47,8 @@ rm -r "$W"
 
 echo "── check_output.py ──"
 run() { echo "$1" | python3 .claude/hooks/check_output.py >/dev/null 2>&1; echo $?; }
+# 差し戻しの本文（stderr）を読むためのもの。exit 2 でも止まらないようにする。
+run_err() { echo "$1" | python3 .claude/hooks/check_output.py 2>&1 >/dev/null || true; }
 J() { python3 -c "import json,sys;print(json.dumps({'last_assistant_message':sys.argv[1],'cwd':'$PWD','session_id':'test'},ensure_ascii=False))" "$1"; }
 
 chk "正常な応答は通す" 0 "$(run "$(J '調査の結果、対象は3件でした。— 状態：完了　次：不要')")"
@@ -80,6 +82,15 @@ chk "【型I】引用ブロックの中の未完了では発火しない（誤�
 rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test
 done_line=$(python3 -c "print('作業の報告です。'*30 + '状態：完了　次：不要')")
 chk "【型I】状態行が「完了」なら本人の宣言を優先して通す" 0 "$(run "$(J "$done_line")")"
+rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
+# 回帰テスト（v28）：差し戻しは「全文の再送」を求めない（2026-09-02 の指摘）
+# 直前の応答はすでに画面に出ている。同じ内容を書き直すと同じ答えが2回届く。
+rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
+msg_out=$(run_err "$(J '調査は終わりました。残りの作業が残っています。')")
+echo "$msg_out" | grep -q "全文の再送はしない" && chk "差し戻しは全文の再送を求めない" 0 0 || chk "差し戻しは全文の再送を求めない" 0 1
+rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
+msg_out2=$(run_err "$(J '調査は終わりました。残りの作業が残っています。')")
+echo "$msg_out2" | grep -q "同じ応答を出し直して" && chk "「同じ応答を出し直せ」と言わない（回帰）" 0 1 || chk "「同じ応答を出し直せ」と言わない（回帰）" 0 0
 rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
 rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
 jarg=$(python3 -c "print('詳しい説明。'*60 + 'フックを使って強制します。出力契約も適用します。')")
