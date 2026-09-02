@@ -28,7 +28,7 @@ python3 tools/build_dist.py > /dev/null 2>&1; chk "復元後は再び合格す�
 
 echo "── make_handover.py ──"
 python3 tools/make_handover.py --new "$TMP/h.md" > /dev/null 2>&1; chk "雛形を生成できる" 0 $?
-python3 tools/make_handover.py --check dist/handover_template_v32.md > /dev/null 2>&1; chk "未記入テンプレートは不合格（異常系）" 1 $?
+python3 tools/make_handover.py --check dist/handover_template_v33.md > /dev/null 2>&1; chk "未記入テンプレートは不合格（異常系）" 1 $?
 python3 - "$TMP/h.md" "$TMP/h2.md" <<'PY'
 import pathlib, sys
 t = pathlib.Path(sys.argv[1]).read_text(encoding='utf-8')
@@ -81,7 +81,7 @@ grep -q "【要記入】" "$TMP/auto.md" && chk "理由の欄に【要記入】�
 python3 tools/make_handover.py --check "$TMP/auto.md" > /dev/null 2>&1
 chk "【要記入】が残っていれば検査に落ちる（異常系）" 1 $?
 
-# --- 回帰（v32）：理由を書き足すと指紋が外れる。--seal で封をし直せば --check が通ること ---
+# --- 回帰（v33）：理由を書き足すと指紋が外れる。--seal で封をし直せば --check が通ること ---
 # 実測で見つけた設計の矛盾。「理由を埋めよ」と「指紋を保て」が同時に成立していなかった。
 python3 - "$TMP/auto.md" "$TMP/sealed.md" <<'PYT'
 import pathlib, sys
@@ -101,7 +101,39 @@ grep -q "一致。生成時" "$TMP/sr.txt" && chk "封のあとも指紋一致�
 python3 tools/make_handover.py --seal "$TMP/sealed.md" > "$TMP/sr2.txt" 2>&1
 grep -q "封をし直す必要は無い" "$TMP/sr2.txt" && chk "一致しているファイルへの --seal は何もしない" 0 0 || chk "一致しているファイルへの --seal は何もしない" 0 1
 
-# --- 枝分かれ（v32）：1つの作業が2つ以上のセッションへ分かれるとき ---
+# --- 案件名の機械的な正規化（v33）：2026-09-02 の事案 ---
+# ユーザーが「kobo anken」と指定したのに、別のセッションが
+# `kobo_anken_hikitsugi_20260902_v1.md` を作った（語を足し、固定名を作らなかった）。
+mkj3() { python3 -c "
+import sys,pathlib,json
+rows=[{'type':'user','sessionId':'sN','timestamp':'2026-09-02T00:00:00Z','cwd':'/w','message':{'role':'user','content':'依頼です'}},
+      {'type':'assistant','sessionId':'sN','timestamp':'2026-09-02T00:01:00Z','message':{'role':'assistant','content':[{'type':'text','text':'承知'}]}}]
+pathlib.Path(sys.argv[1]).write_text(''.join(json.dumps(r,ensure_ascii=False)+chr(10) for r in rows),encoding='utf-8')" "$1"; }
+mkj3 "$TMP/nm.jsonl"
+mkdir -p "$TMP/nm"
+python3 tools/make_handover.py --auto "$TMP/nm/kobo anken_handover_latest.md" --transcript "$TMP/nm.jsonl" > "$TMP/nm.txt" 2>&1
+chk "空白を含む案件名でも保存できる" 0 $?
+[ -f "$TMP/nm/kobo_anken_handover_latest.md" ] && chk "空白は _ に直る（§7-11）" 0 0 || chk "空白は _ に直る（§7-11）" 0 1
+[ -f "$TMP/nm/kobo_anken_handover_20260902_v1.md" ] || ls "$TMP/nm"/kobo_anken_handover_2*_v1.md >/dev/null 2>&1
+chk "日付版も同時に残る（履歴が消えない）" 0 $?
+grep -q "語は足していない" "$TMP/nm.txt" && chk "語を足さないと明記する" 0 0 || chk "語を足さないと明記する" 0 1
+grep -q "hikitsugi" "$TMP/nm.txt" && chk "規格外の語を勝手に足さない（回帰）" 0 1 || chk "規格外の語を勝手に足さない（回帰）" 0 0
+python3 -c "
+import sys,pathlib
+sys.path.insert(0,'tools')
+import make_handover as M
+ok = (M.normalize_name('kobo anken')=='kobo_anken'
+      and M.normalize_name('東京 案件')==''
+      and M.normalize_name('a  b')=='a_b'
+      and M.paths_for('kobo_anken')[0]=='kobo_anken_handover_latest.md'
+      and M.paths_for('kobo_anken','survey')[0]=='kobo_anken.survey_handover_latest.md')
+sys.exit(0 if ok else 1)"
+chk "正規化と命名の規則が仕様どおり" 0 $?
+python3 tools/make_handover.py --auto "$TMP/nm/東京案件_handover_latest.md" --transcript "$TMP/nm.jsonl" > "$TMP/nm2.txt" 2>&1
+chk "英数を含まない案件名では勝手に名前を付けず止まる（異常系）" 1 $?
+grep -q "一つだけ質問" "$TMP/nm2.txt" && chk "止めたとき質問するよう促す" 0 0 || chk "止めたとき質問するよう促す" 0 1
+
+# --- 枝分かれ（v33）：1つの作業が2つ以上のセッションへ分かれるとき ---
 mkj2() { python3 -c "
 import sys,pathlib,json
 sid=sys.argv[2]

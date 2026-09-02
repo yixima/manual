@@ -224,6 +224,41 @@ def case_from(out):
     return stem.split('.')[0]
 
 
+SAFE = re.compile(r'^[A-Za-z0-9._-]+$')
+
+
+def normalize_name(name):
+    """ユーザーが言った案件名を、そのまま使える形に**機械的に**直す。
+
+    **語を足さない。減らさない。使えない文字だけを置き換える。**
+    なぜ機械でやるか：セッションごとに判断させると、**同じ案件名から違うファイル名が生まれる**。
+    実際に起きた（2026-09-02）——ユーザーが「kobo anken」と指定したのに、
+    別のセッションが `kobo_anken_hikitsugi_20260902_v1.md` を作った。
+    空白を `_` にするのは §7-11 が要求するので正しい。
+    だが **`hikitsugi` という語を足し、固定名（`_latest`）を作らなかったのは誤りである**——
+    日付入りの名前しか無ければ、次のセッションは**日付を知らないと見つけられない**
+    （§5.6「場所と名前が固定。探させない」）。
+    """
+    t = name.strip()
+    t = re.sub(r'[\s\u3000]+', '_', t)          # 空白（全角も）→ _
+    t = re.sub(r'[^A-Za-z0-9._-]', '-', t)      # 残る使えない文字 → -
+    t = re.sub(r'-{2,}', '-', t).strip('-._')
+    # **残るものが無ければ、勝手に名前を付けない。** 全部が日本語のときがこれである。
+    # ここで `case` のような既定値を作ると、**別の案件と同じ名前になり、上書きし合う**。
+    return t
+
+
+def paths_for(case, lane=''):
+    """固定名（探させない）と日付版（履歴を残す）の2本を返す。
+
+    **固定名は必ず作る。** 次のセッションはこの名前だけを頼りに探す。
+    日付版は、節目ごとの上書きで消えないよう、履歴として別途残す（§5.6）。
+    """
+    stem = f"{case}.{lane}" if lane else case
+    day = datetime.datetime.now().strftime('%Y%m%d')
+    return f"{stem}_handover_latest.md", f"{stem}_handover_{day}_v1.md"
+
+
 def lane_path(out, lane):
     """枝名を与えられたとき、枝ごとに別のファイル名にする。
 
@@ -505,6 +540,16 @@ def auto(out, template, transcript=None, cwd=None, verbatim=True,
             return 1
 
     outp.write_text(stamp(body, manifest), encoding='utf-8')
+
+    # **固定名だけでは履歴が残らない（節目ごとに上書きするため）。日付版も並べて残す**（§5.6）。
+    try:
+        _, dated = paths_for(manifest['case'], manifest.get('lane') or '')
+        dp = outp.with_name(dated)
+        if outp.name.endswith('_handover_latest.md') and not dp.exists():
+            dp.write_text(outp.read_text(encoding='utf-8'), encoding='utf-8')
+            print(f"日付版も残した：{dp.name}（固定名が上書きされても履歴が消えないように）")
+    except Exception:
+        pass
 
     print(f"{out} を作成した。")
     print(f"  記録から写した：依頼の原文 {len(d['user_messages'])} 件／実行したコマンド {len(d['commands'])} 件／"
@@ -893,8 +938,35 @@ def main():
     a = ap.parse_args()
     tpl = a.template or default_template()
     if a.auto:
+        # 案件名に使えない文字があれば、**保存する前に**機械で直して報告する。
+        raw_case = a.case or case_from(a.auto)
+        norm_case = normalize_name(raw_case)
+        norm_lane = normalize_name(a.lane) if a.lane else ''
+        if norm_case != raw_case or (a.lane and norm_lane != a.lane):
+            print(f"[案件名の調整] `{raw_case}`" + (f".{a.lane}" if a.lane else "")
+                  + f" → `{norm_case}`" + (f".{norm_lane}" if norm_lane else ""))
+            print("  ファイル名に使える文字は `^[A-Za-z0-9._-]+$` だけである（§7-11）。"
+                  "**置き換えたのは使えない文字だけで、語は足していない。**")
+            print("  この名前でよくなければ、いま言ってください。あとから変えると、"
+                  "次のセッションから見えなくなります。")
+        if not norm_case:
+            print(f"[中止] 案件名 `{raw_case}` は、ファイル名に使える文字を1つも含まない。",
+                  file=sys.stderr)
+            print("  ファイル名に使えるのは半角英数・ハイフン・アンダースコア・ドットだけである"
+                  "（§7-11）。日本語の案件名は、ファイル名にはできない。", file=sys.stderr)
+            print("  **勝手に名前を付けない。** ユーザーに、半角英数の案件名を"
+                  "**一つだけ質問して**決めること（例：`kobo_anken`）。", file=sys.stderr)
+            print("  日本語の名称は、ファイルの中（表題）に書けばよい。", file=sys.stderr)
+            return 1
+        a.case, a.lane = norm_case, norm_lane
         out = lane_path(a.auto, a.lane)
-        if out != a.auto:
+        # ファイル名そのものに使えない文字が残るなら、**案件名から組み直す**。
+        # ユーザーが言うのは案件名であって、ファイル名ではない（§2-13 相手に組み立てさせない）。
+        if not SAFE.match(pathlib.Path(out).name):
+            latest, _ = paths_for(norm_case, norm_lane)
+            out = str(pathlib.Path(out).with_name(latest))
+            print(f"  → 保存先：{pathlib.Path(out).name}")
+        if a.lane and out != a.auto:
             print(f"枝 `{a.lane}` として書き出す：{out}")
             print("  （枝ごとに別のファイルにする。**同じ名前に上書きすると、"
                   "先に保存した枝の引き継ぎが消え、しかもそれは検出できない。**）")
