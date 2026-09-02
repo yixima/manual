@@ -37,7 +37,7 @@
 
 | # | 配布先 | 貼るもの | 効く範囲 |
 |---|---|---|---|
-| 1 | claude.ai → 左下のイニシャル → 設定 →「Instructions for Claude」 | `L0_core_card_v30.md` の全文（文字数で入らなければ `L0_core_card_mini_v30.md`） | **すべての会話・すべてのプロジェクト** |
+| 1 | claude.ai → 左下のイニシャル → 設定 →「Instructions for Claude」 | `L0_core_card_v31.md` の全文（文字数で入らなければ `L0_core_card_mini_v31.md`） | **すべての会話・すべてのプロジェクト** |
 | 2 | claude.ai → 各プロジェクト → プロジェクト指示 | 同上（案件固有の前提を追記可） | そのプロジェクト内の会話 |
 | 3 | Cowork → 設定 → Cowork →「Global instructions」 | 同上 | **すべての Cowork セッション** |
 | 4 | `~/.claude/CLAUDE.md` | 同上 | **Claude Code の全プロジェクト＋Cowork デスクトップ** |
@@ -53,7 +53,7 @@ python3 tools/install.py             # 実行。既存ファイルは退避し�
 
 ## B. すでに開いているセッションに効かせる（そのつど）
 
-**`manual_v30_all_in_one.md` を、そのセッションに添付するだけ。**
+**`manual_v31_all_in_one.md` を、そのセッションに添付するだけ。**
 冒頭に取扱いの指示（最優先で適用・旧版は保管のみ・確認を求めずに適用する）を内蔵しているため、
 **別途メッセージを書く必要はない。** L0・L1・L2 の3部がこの1ファイルに入っている。
 
@@ -85,7 +85,7 @@ python3 tools/make_handover.py --receipt handover/<ascii_name>.md
 一致すれば、冒頭の確認作業はそれで完了とする。**「ちゃんと理解できていますか」と質問して確かめる必要はない。**
 
 ### `[Chat]` `[Cowork]`（記録が無いため、節目ごとに追記する）
-`handover_template_v30.md` を使い、**一度に全部を思い出そうとせず、区切りのたびに同じファイルを作り直す**（§0-5）。
+`handover_template_v31.md` を使い、**一度に全部を思い出そうとせず、区切りのたびに同じファイルを作り直す**（§0-5）。
 0章の件数表を実際に数えて埋め、受け取った側はそれと本文を突き合わせる。
 
 ## 注意（一次資料で確認済み）

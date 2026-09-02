@@ -6,6 +6,7 @@
   --new  OUT      記録が無い環境向け。テンプレートを複製し、機械で分かる部分だけ埋める
   --check FILE    書き上げた引き継ぎファイルが、渡せる状態かを検査する
   --seal FILE     理由を書き加えたあとに封（指紋）をし直す。--check の前に1回だけ
+  --merge OUT     枝分かれした引き継ぎを1本にまとめる（--from に枝を並べる）
   --receipt FILE  受け取った引き継ぎファイルの完全性を照合し、受領確認を印字する
 
 **設計の中心にある考え方**
@@ -213,7 +214,37 @@ def todo_count(text):
     return fillable(text).count(TODO)
 
 # ── ①記録から作る（[Code]）──────────────────────────────────
-def auto(out, template, transcript=None, cwd=None, verbatim=True):
+def case_from(out):
+    """ファイル名から案件名を推定する。`案件名.枝名_handover_...md` の形を想定する。"""
+    stem = pathlib.Path(out).name
+    for cut in ('_handover_', '_handover'):
+        if cut in stem:
+            stem = stem.split(cut)[0]
+            break
+    return stem.split('.')[0]
+
+
+def lane_path(out, lane):
+    """枝名を与えられたとき、枝ごとに別のファイル名にする。
+
+    **同じ名前に上書きさせないことが、この関数の唯一の目的である。**
+    `tokyo_handover_latest.md` ＋ 枝 `survey` → `tokyo.survey_handover_latest.md`
+    """
+    if not lane:
+        return out
+    p = pathlib.Path(out)
+    name = p.name
+    for cut in ('_handover_', '_handover'):
+        if cut in name:
+            head, rest = name.split(cut, 1)
+            if '.' in head:               # すでに枝が付いていれば付け替える
+                head = head.split('.')[0]
+            return str(p.with_name(f"{head}.{lane}{cut}{rest}"))
+    return str(p.with_name(f"{p.stem}.{lane}{p.suffix}"))
+
+
+def auto(out, template, transcript=None, cwd=None, verbatim=True,
+         case='', lane='', parent=''):
     cwd = cwd or os.getcwd()
     path = HX.find_transcript(cwd=cwd, explicit=transcript)
     if not path:
@@ -427,6 +458,14 @@ def auto(out, template, transcript=None, cwd=None, verbatim=True):
         "session": d['session'],
         "cwd": d['cwd'],
         "branch": d['branch'],
+        # ── 枝分かれ（1つの作業が2つ以上のセッションへ分かれるとき）──
+        # case ＝ 案件名（枝が違っても同じ）／lane ＝ 枝の名前／parent ＝ 分岐元のファイル名
+        # これが無いと、枝ごとの引き継ぎが**同じファイル名を奪い合って上書きし合う**。
+        # 上書きされた側は、受領の照合（指紋・件数）では**検出できない**——
+        # 届いたファイルが壊れていないことしか見ないからである（L2 記録参照）。
+        "case": case or case_from(out),
+        "lane": lane,
+        "parent": parent,
         "counts": {
             "依頼の原文": len(d['user_messages']),
             "こちらの応答": len(d['assistant_texts']),
@@ -442,6 +481,29 @@ def auto(out, template, transcript=None, cwd=None, verbatim=True):
         "chapters": SECTIONS,
         "sha256": PENDING,
     }
+    # ── 上書きの門番（枝分かれ対策）──────────────────────────
+    # **別のセッションが書いた引き継ぎを、枝の名前を決めないまま上書きさせない。**
+    # 上書きされた側は、受領の照合（指紋・件数）では**検出できない**。
+    # 届いたファイルが壊れていないことしか見ないためである（L2 記録参照）。
+    if outp.exists() and not lane:
+        try:
+            prev, _ = read_manifest(outp.read_text(encoding='utf-8'))
+        except Exception:
+            prev = None
+        prev_sid = (prev or {}).get('session', '')
+        if prev_sid and prev_sid != d['session']:
+            print(f"[中止] {out} は**別のセッションが書いた引き継ぎ**である"
+                  f"（既存: {prev_sid[:8]}… ／ いま: {d['session'][:8]}…）。", file=sys.stderr)
+            print("  このまま書くと、**先に保存された引き継ぎが消える。**"
+                  "しかも消えたことは、受領の照合では検出できない。", file=sys.stderr)
+            print("  1つの作業が2つ以上のセッションへ**枝分かれ**しているなら、"
+                  "枝の名前を付けて別のファイルにすること：", file=sys.stderr)
+            print(f"    python3 tools/make_handover.py --auto {out} --lane <枝の名前> "
+                  f"--parent {outp.name}", file=sys.stderr)
+            print("  枝の名前は、**ユーザーに一つだけ質問して決める**"
+                  "（勝手に付けない。名前が変わると次のセッションから見えなくなる）。", file=sys.stderr)
+            return 1
+
     outp.write_text(stamp(body, manifest), encoding='utf-8')
 
     print(f"{out} を作成した。")
@@ -612,6 +674,75 @@ def recount(text):
             "こちらの応答": len(RE_ASST.findall(text))}
 
 # ── ④受領 ──────────────────────────────────────────────────
+def merge(out, sources):
+    """枝分かれした引き継ぎを1本にまとめる（合流）。
+
+    **要約しない。** 各枝の全文をそのまま連ねて残す（§10-5 原本主義）。
+    合流で失われてよいものは何も無い——どちらの枝が正しかったかは、
+    **あとから読む人が判断する**のであって、ここで選別してはならない。
+
+    先頭に「どの枝が何を持っているか」の一覧を置き、
+    そこだけを読めば、必要な枝の該当箇所へ行けるようにする。
+    """
+    srcs = [pathlib.Path(x) for x in sources]
+    missing = [str(x) for x in srcs if not x.exists()]
+    if missing:
+        print("次のファイルが無い：" + "、".join(missing), file=sys.stderr)
+        return 1
+    if len(srcs) < 2:
+        print("合流には2本以上の枝が要る。", file=sys.stderr)
+        return 1
+
+    L = [f"# 引き継ぎ（合流・{pathlib.Path(out).stem}）", "",
+         f"> **{len(srcs)} 本の枝を1本にまとめたものである。作成 {now()}。**",
+         "> **要約していない。** 各枝の全文をそのまま連ねてある。",
+         "> どの枝が正しかったかは**ここでは決めていない**。読む人が判断する。", "",
+         "## 0. どの枝が何を持っているか", "",
+         "| # | 枝 | 案件 | 分岐元 | 生成時刻 | 依頼の原文 | 実行したコマンド |",
+         "|---|---|---|---|---|---|---|"]
+    for i, sp in enumerate(srcs, 1):
+        t = sp.read_text(encoding='utf-8')
+        man, _ = read_manifest(t)
+        man = man or {}
+        c = man.get('counts') or {}
+        L.append(f"| {i} | {man.get('lane') or '（枝名なし）'} | {man.get('case') or '—'} | "
+                 f"{man.get('parent') or '—'} | {man.get('generated_at', '—')} | "
+                 f"{c.get('依頼の原文', '—')} | {c.get('実行したコマンド', '—')} |")
+    L += ["",
+          "> **矛盾があれば、それ自体が引き継ぐべき情報である。**"
+          "どちらかを消して辻褄を合わせない（§1-9）。", "",
+          "---", ""]
+    for i, sp in enumerate(srcs, 1):
+        t = sp.read_text(encoding='utf-8')
+        man, ok = read_manifest(t)
+        man = man or {}
+        L += [f"# 枝 {i}／{man.get('lane') or sp.stem}（原本：`{sp.name}`）", "",
+              f"> 受領の照合：{'指紋一致（1文字も変わっていない）' if ok else '指紋不一致（生成後に変更あり）'}",
+              "", t.rstrip(), "", "---", ""]
+
+    body = "\n".join(L)
+    manifest = {
+        "manifest_version": 1,
+        "generated_at": now(),
+        "source": "merge",
+        "session": "", "cwd": str(pathlib.Path.cwd()), "branch": "",
+        "case": case_from(out), "lane": "", "parent": "",
+        "merged_from": [x.name for x in srcs],
+        "counts": {}, "chapters": SECTIONS, "sha256": PENDING,
+    }
+    outp = pathlib.Path(out)
+    outp.parent.mkdir(parents=True, exist_ok=True)
+    outp.write_text(stamp(body + "\n\n" + manifest_section().replace(
+        '__MANIFEST__', json.dumps(manifest, ensure_ascii=False, indent=2)), manifest),
+        encoding='utf-8')
+    print(f"{out} に {len(srcs)} 本の枝をまとめた（要約していない）。")
+    for sp in srcs:
+        print(f"  ← {sp.name}")
+    print("  → 0章の一覧で、どの枝に何があるかを確かめること。")
+    print("  → **枝の原本は消さない。** 合流後も、細部は原本にしか無い。")
+    return 0
+
+
 def seal(path):
     """**理由を書き加えたあとに、封をし直す。**
 
@@ -744,20 +875,39 @@ def main():
     g.add_argument('--check', metavar='FILE', help='渡せる状態かを検査する')
     g.add_argument('--seal', metavar='FILE',
                    help='理由を書き加えたあとに封（指紋）をし直す。--check の前に1回')
+    g.add_argument('--merge', metavar='OUT',
+                   help='枝分かれした引き継ぎを1本にまとめる（--from に枝を並べる）')
     g.add_argument('--receipt', metavar='FILE', help='受け取った側が完全性を照合する')
     ap.add_argument('--template', default=None)
     ap.add_argument('--transcript', default=None, help='記録ファイルを明示する（既定は自動検出）')
     ap.add_argument('--no-verbatim', action='store_true', help='付録B（応答の原文）を含めない')
+    # ── 枝分かれ ──
+    ap.add_argument('--lane', default='',
+                    help='枝の名前。1つの作業を2つ以上のセッションへ分けるときに付ける。'
+                         'ファイル名が 案件名.枝名_handover_... になり、互いに上書きしなくなる')
+    ap.add_argument('--parent', default='',
+                    help='分岐元の引き継ぎファイル名。どこから分かれたかを記録する')
+    ap.add_argument('--case', default='', help='案件名（既定はファイル名から推定）')
+    ap.add_argument('--from', dest='sources', nargs='+', default=[],
+                    help='--merge でまとめる枝のファイル（2本以上）')
     a = ap.parse_args()
     tpl = a.template or default_template()
     if a.auto:
-        return auto(a.auto, tpl, a.transcript, verbatim=not a.no_verbatim)
+        out = lane_path(a.auto, a.lane)
+        if out != a.auto:
+            print(f"枝 `{a.lane}` として書き出す：{out}")
+            print("  （枝ごとに別のファイルにする。**同じ名前に上書きすると、"
+                  "先に保存した枝の引き継ぎが消え、しかもそれは検出できない。**）")
+        return auto(out, tpl, a.transcript, verbatim=not a.no_verbatim,
+                    case=a.case, lane=a.lane, parent=a.parent)
     if a.new:
         return new(a.new, tpl)
     if a.check:
         return check(a.check, tpl)
     if a.seal:
         return seal(a.seal)
+    if a.merge:
+        return merge(a.merge, a.sources)
     return receipt(a.receipt)
 
 

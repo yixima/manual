@@ -193,6 +193,29 @@ mkdir -p "$UNMARKED/.claude" && touch "$UNMARKED/.claude/manual-session"
 chk "発行担当と明示されていれば許可" "allow" "$(dc "$(J0 './tools/publish.sh' "$UNMARKED")")"
 rm -r "$UNMARKED"
 
+echo "── handover_receipt.py（枝分かれ）──"
+HR=$(mktemp -d); mkdir -p "$HR/handover" "$HR/metrics"
+mkhv() { python3 -c "
+import sys,pathlib,json
+p=pathlib.Path(sys.argv[1])
+man={'manifest_version':1,'generated_at':'2026-09-02','source':'transcript','session':sys.argv[2],
+     'cwd':'/w','branch':'','case':'tokyo','lane':sys.argv[3],'parent':sys.argv[4],
+     'counts':{},'chapters':[],'sha256':'x'}
+p.write_text('# h' + chr(10)*2 + '## 1. 依頼の原文' + chr(10)*2 + '本文' + chr(10)*2
+             + '\`\`\`handover-manifest' + chr(10) + json.dumps(man,ensure_ascii=False)
+             + chr(10) + '\`\`\`' + chr(10), encoding='utf-8')" "$1" "$2" "$3" "$4"; }
+mkhv "$HR/handover/tokyo_handover_latest.md" sessP "" ""
+recv() { echo "{\"cwd\":\"$HR\",\"session_id\":\"$1\"}" | CLAUDE_MANUAL_METRICS="$HR/metrics" python3 .claude/hooks/handover_receipt.py 2>&1; }
+recv s1 | grep -q "対象" && chk "1本だけならそのまま受領する" 0 0 || chk "1本だけならそのまま受領する" 0 1
+mkhv "$HR/handover/tokyo.survey_handover_latest.md" sessA survey tokyo_handover_latest.md
+mkhv "$HR/handover/tokyo.design_handover_latest.md" sessB design tokyo_handover_latest.md
+out_hr=$(recv s2)
+grep -q "勝手に決めません" <<<"$out_hr" && chk "複数あれば勝手に選ばない（回帰）" 0 0 || chk "複数あれば勝手に選ばない（回帰）" 0 1
+grep -q "survey" <<<"$out_hr" && grep -q "design" <<<"$out_hr" && chk "候補の一覧に枝名が出る" 0 0 || chk "候補の一覧に枝名が出る" 0 1
+grep -q "一つだけ" <<<"$out_hr" && chk "一つだけ質問するよう促す" 0 0 || chk "一つだけ質問するよう促す" 0 1
+grep -q "対象：" <<<"$out_hr" && chk "複数あるとき「対象」を決め打ちしない（回帰）" 0 1 || chk "複数あるとき「対象」を決め打ちしない（回帰）" 0 0
+rm -r "$HR"
+
 echo "── auto_update.py（フック本体の自動更新）──"
 # v29 で追加。v25〜v28 の修正はすべてフック本体の修正であり、
 # コアカードだけを自動更新しても検査の中身は古いままだった（L2 記録参照）。

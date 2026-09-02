@@ -28,7 +28,7 @@ python3 tools/build_dist.py > /dev/null 2>&1; chk "復元後は再び合格す�
 
 echo "── make_handover.py ──"
 python3 tools/make_handover.py --new "$TMP/h.md" > /dev/null 2>&1; chk "雛形を生成できる" 0 $?
-python3 tools/make_handover.py --check dist/handover_template_v30.md > /dev/null 2>&1; chk "未記入テンプレートは不合格（異常系）" 1 $?
+python3 tools/make_handover.py --check dist/handover_template_v31.md > /dev/null 2>&1; chk "未記入テンプレートは不合格（異常系）" 1 $?
 python3 - "$TMP/h.md" "$TMP/h2.md" <<'PY'
 import pathlib, sys
 t = pathlib.Path(sys.argv[1]).read_text(encoding='utf-8')
@@ -81,7 +81,7 @@ grep -q "【要記入】" "$TMP/auto.md" && chk "理由の欄に【要記入】�
 python3 tools/make_handover.py --check "$TMP/auto.md" > /dev/null 2>&1
 chk "【要記入】が残っていれば検査に落ちる（異常系）" 1 $?
 
-# --- 回帰（v30）：理由を書き足すと指紋が外れる。--seal で封をし直せば --check が通ること ---
+# --- 回帰（v31）：理由を書き足すと指紋が外れる。--seal で封をし直せば --check が通ること ---
 # 実測で見つけた設計の矛盾。「理由を埋めよ」と「指紋を保て」が同時に成立していなかった。
 python3 - "$TMP/auto.md" "$TMP/sealed.md" <<'PYT'
 import pathlib, sys
@@ -100,6 +100,38 @@ chk "封をし直した引き継ぎは受領も完全になる" 0 $?
 grep -q "一致。生成時" "$TMP/sr.txt" && chk "封のあとも指紋一致として報告する" 0 0 || chk "封のあとも指紋一致として報告する" 0 1
 python3 tools/make_handover.py --seal "$TMP/sealed.md" > "$TMP/sr2.txt" 2>&1
 grep -q "封をし直す必要は無い" "$TMP/sr2.txt" && chk "一致しているファイルへの --seal は何もしない" 0 0 || chk "一致しているファイルへの --seal は何もしない" 0 1
+
+# --- 枝分かれ（v31）：1つの作業が2つ以上のセッションへ分かれるとき ---
+mkj2() { python3 -c "
+import sys,pathlib,json
+sid=sys.argv[2]
+rows=[{'type':'user','sessionId':sid,'timestamp':'2026-09-02T00:00:00Z','cwd':'/w','message':{'role':'user','content':'依頼です'}},
+      {'type':'assistant','sessionId':sid,'timestamp':'2026-09-02T00:01:00Z','message':{'role':'assistant','content':[{'type':'text','text':'承知'}]}}]
+pathlib.Path(sys.argv[1]).write_text(''.join(json.dumps(r,ensure_ascii=False)+chr(10) for r in rows),encoding='utf-8')" "$1" "$2"; }
+mkj2 "$TMP/la.jsonl" sessA
+mkj2 "$TMP/lb.jsonl" sessB
+python3 tools/make_handover.py --auto "$TMP/case_handover_latest.md" --transcript "$TMP/la.jsonl" >/dev/null 2>&1
+chk "親の引き継ぎを作れる" 0 $?
+python3 tools/make_handover.py --auto "$TMP/case_handover_latest.md" --transcript "$TMP/lb.jsonl" > "$TMP/g.txt" 2>&1
+chk "別セッションが枝名なしで上書きしようとすると止まる（異常系）" 1 $?
+grep -q -- "--lane" "$TMP/g.txt" && chk "止めたとき --lane の使い方を案内する" 0 0 || chk "止めたとき --lane の使い方を案内する" 0 1
+python3 - "$TMP/case_handover_latest.md" <<'PYT'
+import pathlib,sys,re,json
+t=pathlib.Path(sys.argv[1]).read_text(encoding='utf-8')
+d=json.loads(re.search(r'```handover-manifest\n(.*?)\n```',t,re.S).group(1))
+sys.exit(0 if d.get('session')=='sessA' else 1)
+PYT
+chk "先に保存された引き継ぎが消えていない（回帰）" 0 $?
+python3 tools/make_handover.py --auto "$TMP/case_handover_latest.md" --transcript "$TMP/lb.jsonl" --lane design --parent case_handover_latest.md >/dev/null 2>&1
+chk "枝名を付ければ保存できる" 0 $?
+[ -f "$TMP/case.design_handover_latest.md" ] && chk "枝ごとに別のファイル名になる" 0 0 || chk "枝ごとに別のファイル名になる" 0 1
+python3 tools/make_handover.py --auto "$TMP/case_handover_latest.md" --transcript "$TMP/la.jsonl" --lane survey --parent case_handover_latest.md >/dev/null 2>&1
+python3 tools/make_handover.py --merge "$TMP/case_merged.md" --from "$TMP/case.survey_handover_latest.md" "$TMP/case.design_handover_latest.md" >/dev/null 2>&1
+chk "枝を合流できる" 0 $?
+grep -q "どの枝が何を持っているか" "$TMP/case_merged.md" && chk "合流ファイルに枝の一覧が入る" 0 0 || chk "合流ファイルに枝の一覧が入る" 0 1
+grep -q "survey" "$TMP/case_merged.md" && grep -q "design" "$TMP/case_merged.md" && chk "合流で両方の枝の全文が残る（要約しない）" 0 0 || chk "合流で両方の枝の全文が残る（要約しない）" 0 1
+python3 tools/make_handover.py --merge "$TMP/x.md" --from "$TMP/case.survey_handover_latest.md" >/dev/null 2>&1
+chk "枝が1本だけなら合流しない（異常系）" 1 $?
 
 echo "── 受領確認（--receipt）──"
 python3 tools/make_handover.py --receipt "$TMP/auto.md" > "$TMP/r.txt" 2>&1
