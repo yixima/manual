@@ -63,6 +63,70 @@ def lineage(path):
         return '', '', ''
 
 
+def case_from_name(name):
+    """照合ブロックに案件名が無い（古い引き継ぎ）ときは、ファイル名から取る。"""
+    for cut in ('_handover_', '_handover'):
+        if cut in name:
+            return name.split(cut)[0].split('.')[0]
+    return pathlib.Path(name).stem.split('.')[0]
+
+
+def existing_lanes(cwd):
+    """受け口ですでに使われている枝名を集める。**同じ名前を提案させないため。**"""
+    out = []
+    d = pathlib.Path(cwd) / 'handover'
+    if not d.is_dir():
+        return out
+    for f in d.glob('*.md'):
+        try:
+            _, lane, _ = lineage(f)
+            if lane and lane not in out:
+                out.append(lane)
+        except Exception:
+            continue
+    return out
+
+
+def section(text, head, limit=600):
+    """引き継ぎの1章だけを切り出す。枝名を提案する材料にする。"""
+    try:
+        i = text.index(head)
+    except ValueError:
+        return ''
+    j = text.find('\n## ', i + len(head))
+    return text[i:j if j > 0 else len(text)][:limit].strip()
+
+
+def own_file(cands, sid):
+    """候補のうち、**このセッション自身が書いたもの**を返す。
+
+    自分が書いた引き継ぎがあるなら、それが自分宛てであることは確定している。
+    **確定しているものを質問してはいけない**（§2-5 自分で調べれば分かることは質問しない）。
+    """
+    import re
+    for c in cands:
+        try:
+            m = re.search(r'```handover-manifest\n(.*?)\n```',
+                          c.read_text(encoding='utf-8', errors='replace'), re.S)
+            man = json.loads(m.group(1)) if m else {}
+            if man.get('session') == sid:
+                return c
+        except Exception:
+            continue
+    return None
+
+
+def my_lane(cwd, sid):
+    """このセッションがすでに枝を持っているか。持っていれば再び質問しない。"""
+    d = pathlib.Path(cwd) / 'handover'
+    if not d.is_dir():
+        return ''
+    own = own_file(sorted(d.glob('*.md')), sid)
+    if not own:
+        return ''
+    return lineage(own)[1]
+
+
 def already_done(cwd, sid):
     """同じセッションで二度流し込まない（開始のたびに再注入されると邪魔になるため）。"""
     d = pathlib.Path(os.environ.get('CLAUDE_MANUAL_METRICS',
@@ -83,6 +147,10 @@ def main():
         return 0                       # 読めなくてもセッションの開始を妨げない
     if not f and not cands:
         return 0
+    if not f:
+        # まず、**このセッション自身が書いた引き継ぎ**が候補にあれば、それが自分宛てである。
+        # 確定しているものを質問しない（§2-5）。
+        f = own_file(cands, sid)
     if not f:
         # **複数ある＝枝分かれしている。勝手に選ばない**（§5.6）。
         import datetime as _dt
@@ -131,6 +199,44 @@ def main():
         print(out.strip())
     else:
         print("受領確認スクリプトを実行できなかった。ファイルを直接読んで、10章の欠落を自分で確認すること。")
+    # ── 枝の名前を決める（セッション開始時に提案し、ユーザーが確定する）──
+    # なぜここで決めるか：枝名が決まらないまま作業を進めると、最初の節目で
+    # **保存できない**（別セッションの引き継ぎを枝名なしで上書きできないため）。
+    # 決めるのを後回しにすると、**いちばん保存したい瞬間に手が止まる**。
+    mine = my_lane(cwd, sid)
+    if mine:
+        print(f"\n→ このセッションの枝は `{mine}` である。**枝名の質問は不要。**"
+              f"節目ごとに `--lane {mine}` を付けて保存する。")
+    else:
+        raw = f.read_text(encoding='utf-8', errors='replace')
+        used = existing_lanes(cwd)
+        print("\n【枝の名前を決める（§5.6 枝分かれ）】")
+        print("**この引き継ぎから枝分かれして進むなら、枝の名前が要る。**"
+              "名前が無いと、最初の節目で保存できない"
+              "（別のセッションが書いた引き継ぎを、枝名なしでは上書きできないため）。")
+        if used:
+            print(f"→ **すでに使われている枝名：{'、'.join(f'`{x}`' for x in used)}"
+                  f"（重複させない）**")
+        for head, label in (('## 7. 未完了のタスク', '未完了'),
+                            ('## 8. 次に最初に行うこと', '次の一手')):
+            body = section(raw, head)
+            if body:
+                print(f"\n［{label}（枝名を考える材料）］\n{body}")
+        print("\n→ **上を読んだうえで、枝の名前を2〜3個提案し、"
+              "ユーザーに『一つだけ』質問すること**（§2-4）。")
+        print("→ 名前は **半角英数とハイフンのみ**（`^[A-Za-z0-9._-]+$`。§7-11）。"
+              "日本語の意味を1行添える（例：`survey`＝現地調査の枝）。")
+        print("→ **勝手に決めない。** 一度決めた名前は変えられない"
+              "（変えると次のセッションから見えなくなる）。")
+        print("→ ユーザーが名前を指示したら、**その場で次を実行して最初の保存まで行う**："
+              "\n```\npython3 tools/make_handover.py --auto handover/"
+              f"{lineage(f)[0] or case_from_name(f.name)}_handover_latest.md \\\n"
+              f"        --lane <指示された名前> --parent {f.name}\n```"
+              "\n   （ファイル名は自動で `案件名.枝名_handover_latest.md` になる。"
+              "その後 `--seal` → `--check` を通す。）")
+        print("→ **枝分かれしない（この続きを1本で進める）とユーザーが答えたら、"
+              "枝名は付けない。** その場合は保存時に上書きの門番が働く。")
+
     print("\n→ **作業に入る前に、このファイルを全章読むこと。**"
           "第1章（依頼の原文）と付録B（応答の原文）は要約ではなく原文である。要約で代用しない。\n"
           "→ 受領が完全であれば、**ユーザーに「理解できているか」を確かめる質問はしない。**"

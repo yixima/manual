@@ -206,7 +206,10 @@ p.write_text('# h' + chr(10)*2 + '## 1. 依頼の原文' + chr(10)*2 + '本文' 
              + chr(10) + '\`\`\`' + chr(10), encoding='utf-8')" "$1" "$2" "$3" "$4"; }
 mkhv "$HR/handover/tokyo_handover_latest.md" sessP "" ""
 recv() { echo "{\"cwd\":\"$HR\",\"session_id\":\"$1\"}" | CLAUDE_MANUAL_METRICS="$HR/metrics" python3 .claude/hooks/handover_receipt.py 2>&1; }
-recv s1 | grep -q "対象" && chk "1本だけならそのまま受領する" 0 0 || chk "1本だけならそのまま受領する" 0 1
+# パイプで受けない：grep -q は一致した時点でパイプを閉じるため、
+# 出力が長いと書き手側が SIGPIPE で落ち、pipefail が grep の成否を上書きする。
+o1=$(recv s1)
+grep -q "対象" <<<"$o1" && chk "1本だけならそのまま受領する" 0 0 || chk "1本だけならそのまま受領する" 0 1
 mkhv "$HR/handover/tokyo.survey_handover_latest.md" sessA survey tokyo_handover_latest.md
 mkhv "$HR/handover/tokyo.design_handover_latest.md" sessB design tokyo_handover_latest.md
 out_hr=$(recv s2)
@@ -214,6 +217,38 @@ grep -q "勝手に決めません" <<<"$out_hr" && chk "複数あれば勝手に
 grep -q "survey" <<<"$out_hr" && grep -q "design" <<<"$out_hr" && chk "候補の一覧に枝名が出る" 0 0 || chk "候補の一覧に枝名が出る" 0 1
 grep -q "一つだけ" <<<"$out_hr" && chk "一つだけ質問するよう促す" 0 0 || chk "一つだけ質問するよう促す" 0 1
 grep -q "対象：" <<<"$out_hr" && chk "複数あるとき「対象」を決め打ちしない（回帰）" 0 1 || chk "複数あるとき「対象」を決め打ちしない（回帰）" 0 0
+# v32：開始時に枝名を提案させる（ユーザーが確定してから最初の保存を行う）
+HR2=$(mktemp -d); mkdir -p "$HR2/handover" "$HR2/metrics"
+python3 -c "
+import sys,pathlib,json
+p=pathlib.Path(sys.argv[1])
+man={'manifest_version':1,'generated_at':'2026-09-02','source':'transcript','session':'sessP',
+     'cwd':'/w','branch':'','case':'tokyo','lane':'','parent':'','counts':{},'chapters':[],'sha256':'x'}
+p.write_text('# h'+chr(10)*2+'## 1. 依頼の原文'+chr(10)*2+'本文'+chr(10)*2
+  +'## 7. 未完了のタスク'+chr(10)*2+'現地調査が残っている'+chr(10)*2
+  +'## 8. 次に最初に行うこと'+chr(10)*2+'調査から始める'+chr(10)*2
+  +'\`\`\`handover-manifest'+chr(10)+json.dumps(man,ensure_ascii=False)+chr(10)+'\`\`\`'+chr(10),
+  encoding='utf-8')" "$HR2/handover/tokyo_handover_latest.md"
+recv2() { echo "{\"cwd\":\"$HR2\",\"session_id\":\"$1\"}" | CLAUDE_MANUAL_METRICS="$HR2/metrics" python3 .claude/hooks/handover_receipt.py 2>&1; }
+o2=$(recv2 n1)
+grep -q "枝の名前を決める" <<<"$o2" && chk "開始時に枝名を決めるよう促す" 0 0 || chk "開始時に枝名を決めるよう促す" 0 1
+grep -q "2〜3個提案" <<<"$o2" && chk "枝名を提案させてから質問させる" 0 0 || chk "枝名を提案させてから質問させる" 0 1
+grep -q "現地調査が残っている" <<<"$o2" && chk "枝名を考える材料（未完了）を渡す" 0 0 || chk "枝名を考える材料（未完了）を渡す" 0 1
+grep -q -- "--lane <指示された名前>" <<<"$o2" && chk "確定後すぐ保存できる命令を用意する" 0 0 || chk "確定後すぐ保存できる命令を用意する" 0 1
+grep -q "tokyo_handover_latest.md" <<<"$o2" && chk "案件名を埋めた命令を出す" 0 0 || chk "案件名を埋めた命令を出す" 0 1
+# すでに枝を持つセッションには、二度と質問させない
+python3 -c "
+import sys,pathlib,json
+p=pathlib.Path(sys.argv[1])
+man={'manifest_version':1,'generated_at':'2026-09-02','source':'transcript','session':'n2',
+     'cwd':'/w','branch':'','case':'tokyo','lane':'survey','parent':'tokyo_handover_latest.md',
+     'counts':{},'chapters':[],'sha256':'x'}
+p.write_text('# h'+chr(10)*2+'## 1. 依頼の原文'+chr(10)*2+'本文'+chr(10)*2
+  +'\`\`\`handover-manifest'+chr(10)+json.dumps(man,ensure_ascii=False)+chr(10)+'\`\`\`'+chr(10),
+  encoding='utf-8')" "$HR2/handover/tokyo.survey_handover_latest.md"
+o3=$(recv2 n2)
+grep -q "枝は \`survey\`" <<<"$o3" && chk "すでに枝を持つセッションには質問させない" 0 0 || chk "すでに枝を持つセッションには質問させない" 0 1
+rm -r "$HR2"
 rm -r "$HR"
 
 echo "── auto_update.py（フック本体の自動更新）──"
