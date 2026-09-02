@@ -177,6 +177,38 @@ mkdir -p "$UNMARKED/.claude" && touch "$UNMARKED/.claude/manual-session"
 chk "発行担当と明示されていれば許可" "allow" "$(dc "$(J0 './tools/publish.sh' "$UNMARKED")")"
 rm -r "$UNMARKED"
 
+echo "── auto_update.py（フック本体の自動更新）──"
+# v29 で追加。v25〜v28 の修正はすべてフック本体の修正であり、
+# コアカードだけを自動更新しても検査の中身は古いままだった（L2 記録参照）。
+AU=$(mktemp -d)
+mkdir -p "$AU/repo/.claude/hooks" "$AU/repo/latest" "$AU/home/.claude/hooks/manual"
+cp .claude/hooks/*.py "$AU/repo/.claude/hooks/"
+cp latest/L0_core_card.md latest/latest.json "$AU/repo/latest/"
+git -C "$AU/repo" init -q
+git -C "$AU/repo" -c user.email=t@t -c user.name=t add -A >/dev/null 2>&1
+git -C "$AU/repo" -c user.email=t@t -c user.name=t commit -qm t >/dev/null 2>&1
+# origin/main を直接作る（ネットワークに依存させない）
+git -C "$AU/repo" update-ref refs/remotes/origin/main HEAD
+# 導入済みのフックを「古い状態」にしておく
+for f in inject_gate check_output guard_delivery auto_update manual_sync handover_receipt; do
+  printf '# ふるいフック\n' > "$AU/home/.claude/hooks/manual/$f.py"
+done
+out=$(echo '{}' | HOME="$AU/home" CLAUDE_MANUAL_REPO="$AU/repo" python3 .claude/hooks/auto_update.py 2>&1)
+grep -q '検査プログラム' <<<"$out" && chk "フック本体が古ければ最新に差し替える" 0 0 || chk "フック本体が古ければ最新に差し替える" 0 1
+grep -q 'RE_INCOMPLETE' "$AU/home/.claude/hooks/manual/check_output.py" && chk "差し替え後の中身が配布元と同じ" 0 0 || chk "差し替え後の中身が配布元と同じ" 0 1
+[ -f "$AU/home/.claude/hooks/manual/check_output.py.bak" ] && chk "上書きの前に退避（.bak）を残す" 0 0 || chk "上書きの前に退避（.bak）を残す" 0 1
+# 壊れたフックは入れない（入れると以後毎ターン作業が止まるため）
+printf 'def broken(:\n' > "$AU/repo/.claude/hooks/check_output.py"
+git -C "$AU/repo" -c user.email=t@t -c user.name=t commit -qam broken >/dev/null 2>&1
+git -C "$AU/repo" update-ref refs/remotes/origin/main HEAD
+echo '{}' | HOME="$AU/home" CLAUDE_MANUAL_REPO="$AU/repo" python3 .claude/hooks/auto_update.py >/dev/null 2>&1
+grep -q 'RE_INCOMPLETE' "$AU/home/.claude/hooks/manual/check_output.py" && chk "構文が壊れたフックは入れない（異常系）" 0 0 || chk "構文が壊れたフックは入れない（異常系）" 0 1
+# 未導入の環境では何もしない
+AU2=$(mktemp -d); mkdir -p "$AU2/home"
+echo '{}' | HOME="$AU2/home" CLAUDE_MANUAL_REPO="$AU/repo" python3 .claude/hooks/auto_update.py >/dev/null 2>&1
+chk "未導入の環境では何もせず止まらない（異常系）" 0 $?
+rm -r "$AU" "$AU2"
+
 echo "────────────────────────────"
 echo "合格 $pass 件 / 不合格 $fail 件"
 rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
