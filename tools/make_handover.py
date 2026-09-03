@@ -7,6 +7,7 @@
   --check FILE    書き上げた引き継ぎファイルが、渡せる状態かを検査する
   --seal FILE     理由を書き加えたあとに封（指紋）をし直す。--check の前に1回だけ
   --merge OUT     枝分かれした引き継ぎを1本にまとめる（--from に枝を並べる）
+  --tidy DIR      受け口を案件ごとのフォルダへ片付ける（移動のみ・消さない）
   --receipt FILE  受け取った引き継ぎファイルの完全性を照合し、受領確認を印字する
 
 **設計の中心にある考え方**
@@ -246,6 +247,16 @@ def normalize_name(name):
     # **残るものが無ければ、勝手に名前を付けない。** 全部が日本語のときがこれである。
     # ここで `case` のような既定値を作ると、**別の案件と同じ名前になり、上書きし合う**。
     return t
+
+
+def case_dir(receptacle, case):
+    """案件ごとのフォルダ。**受け口にファイルが散乱しないようにする。**
+
+    受け口の直下に全案件のファイルを並べると、案件が増えるほど探しにくくなり、
+    §5.6 の「場所と名前が固定（探させない）」が実質的に成り立たなくなる。
+    `<受け口>/<案件名>/` に入れれば、案件名さえ分かればフォルダごと辿れる。
+    """
+    return pathlib.Path(receptacle) / case
 
 
 def paths_for(case, lane=''):
@@ -543,7 +554,10 @@ def auto(out, template, transcript=None, cwd=None, verbatim=True,
 
     # **固定名だけでは履歴が残らない（節目ごとに上書きするため）。日付版も並べて残す**（§5.6）。
     try:
-        _, dated = paths_for(manifest['case'], manifest.get('lane') or '')
+        # 日付版は、**実際の固定名から**導く。案件名から組み直すと、
+        # 枝の引き継ぎが親の日付版と同じ名前になり、履歴が残らない。
+        day = datetime.datetime.now().strftime('%Y%m%d')
+        dated = outp.name.replace('_handover_latest.md', f'_handover_{day}_v1.md')
         dp = outp.with_name(dated)
         if outp.name.endswith('_handover_latest.md') and not dp.exists():
             dp.write_text(outp.read_text(encoding='utf-8'), encoding='utf-8')
@@ -788,6 +802,49 @@ def merge(out, sources):
     return 0
 
 
+def tidy(receptacle):
+    """受け口に散らばった引き継ぎを、案件ごとのフォルダへ片付ける。
+
+    **移動するだけで、消さない**（§8-5 不可逆操作の標準手順）。
+    件数を照合し、移動前後で1件も失われていないことを確かめてから報告する。
+    """
+    d = pathlib.Path(receptacle)
+    if not d.is_dir():
+        print(f"{receptacle} が無い。", file=sys.stderr)
+        return 1
+    loose = [f for f in d.glob('*.md')
+             if f.is_file() and '_handover' in f.name]
+    if not loose:
+        print(f"{receptacle} の直下に、片付ける引き継ぎは無い。")
+        return 0
+    before = len(loose)
+    moved, skipped = [], []
+    for f in loose:
+        case = case_from(f.name)
+        if not case:
+            skipped.append((f.name, '案件名を読み取れない'))
+            continue
+        dst = case_dir(d, case) / f.name
+        if dst.exists():
+            skipped.append((f.name, f'{case}/ に同名がすでにある'))
+            continue
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        f.rename(dst)
+        moved.append((f.name, case))
+    after = len(list(d.rglob('*_handover*.md')))
+    print(f"── 受け口の片付け（{receptacle}）──")
+    for name, case in moved:
+        print(f"  [移動] {name} → {case}/")
+    for name, why in skipped:
+        print(f"  [据置] {name}（{why}。**消していない**）")
+    print(f"  件数照合：片付け前 {before} 件 → 片付け後 {after} 件"
+          f"（全体。**1件も消していない**）")
+    if skipped:
+        print("  → 据え置いたものは、名前が重複しているか案件名が読めない。"
+              "**どちらもユーザーに確認してから動かすこと**（§8-5）。")
+    return 0
+
+
 def seal(path):
     """**理由を書き加えたあとに、封をし直す。**
 
@@ -922,6 +979,8 @@ def main():
                    help='理由を書き加えたあとに封（指紋）をし直す。--check の前に1回')
     g.add_argument('--merge', metavar='OUT',
                    help='枝分かれした引き継ぎを1本にまとめる（--from に枝を並べる）')
+    g.add_argument('--tidy', metavar='DIR',
+                   help='受け口に散らばった引き継ぎを案件ごとのフォルダへ片付ける（移動のみ・消さない）')
     g.add_argument('--receipt', metavar='FILE', help='受け取った側が完全性を照合する')
     ap.add_argument('--template', default=None)
     ap.add_argument('--transcript', default=None, help='記録ファイルを明示する（既定は自動検出）')
@@ -933,11 +992,34 @@ def main():
     ap.add_argument('--parent', default='',
                     help='分岐元の引き継ぎファイル名。どこから分かれたかを記録する')
     ap.add_argument('--case', default='', help='案件名（既定はファイル名から推定）')
+    ap.add_argument('--name', default='',
+                    help='ユーザーが承認した引き継ぎファイルの名前（拡張子や _handover_latest は不要）。'
+                         '例：`kobo_anken_omatsuri` → kobo_anken_omatsuri_handover_latest.md')
     ap.add_argument('--from', dest='sources', nargs='+', default=[],
                     help='--merge でまとめる枝のファイル（2本以上）')
     a = ap.parse_args()
     tpl = a.template or default_template()
     if a.auto:
+        # ユーザーが承認した名前が渡されていれば、**それをそのまま使う**。
+        # 直すのは使えない文字だけ。語を足さない（§7-11／2026-09-02 の事案）。
+        if a.name:
+            approved = normalize_name(a.name)
+            if not approved:
+                print(f"[中止] 名前 `{a.name}` は、ファイル名に使える文字を1つも含まない。",
+                      file=sys.stderr)
+                print("  半角英数の名前を**一つだけ質問して**決めること。", file=sys.stderr)
+                return 1
+            if approved != a.name:
+                print(f"[名前の調整] `{a.name}` → `{approved}`"
+                      "（使えない文字だけを直した。**語は足していない**。§7-11）")
+            base = pathlib.Path(a.auto).parent
+            case = normalize_name(a.case) if a.case else approved.split('.')[0]
+            d = case_dir(base, case)
+            d.mkdir(parents=True, exist_ok=True)
+            a.auto = str(d / f"{approved}_handover_latest.md")
+            a.case = case
+            print(f"  → 保存先：{a.auto}")
+
         # 案件名に使えない文字があれば、**保存する前に**機械で直して報告する。
         raw_case = a.case or case_from(a.auto)
         norm_case = normalize_name(raw_case)
@@ -980,6 +1062,8 @@ def main():
         return seal(a.seal)
     if a.merge:
         return merge(a.merge, a.sources)
+    if a.tidy:
+        return tidy(a.tidy)
     return receipt(a.receipt)
 
 

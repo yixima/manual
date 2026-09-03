@@ -38,6 +38,25 @@
 
 **節目ごとに、同じファイル名で上書きし直す。** 劣化してから作らない（§0-5）。
 
+## 受け口の中は、案件ごとのフォルダに分ける
+
+```
+handover/
+  kobo_anken/
+    kobo_anken_handover_latest.md              ← 固定名（次のセッションはこれを見る）
+    kobo_anken_handover_20260903_v1.md         ← 日付版（履歴）
+    kobo_anken_omatsuri_handover_latest.md     ← 枝A
+    kobo_anken_setsubi_handover_latest.md      ← 枝B
+  tokyo_dx/
+    ...
+```
+
+直下に散らばってしまったら、案件ごとのフォルダへ片付けます（**移動だけ。消しません**）。
+
+```
+python3 tools/make_handover.py --tidy handover
+```
+
 ## 枝分かれ（1つの作業を2つ以上のセッションで進めるとき）
 
 **枝の名前を付けないと、あとから保存したほうが先の枝の引き継ぎを消します。**
@@ -45,12 +64,17 @@
 
 各セッションで、枝の名前を**一度だけ**決めます（ユーザーに一つだけ質問して決める。勝手に付けない）。
 
+**流れ**：①枝セッションの開始時、こちらが引き継ぎファイル名を2〜3個提案する
+（形は `<親の案件名>_<何をするか>`。例 `kobo_anken_omatsuri`）→ ②あなたが承認、または訂正する
+→ ③その場でファイルを作り、最初の保存まで済ませる。
+
 ```
-python3 tools/make_handover.py --auto handover/<案件名>_handover_latest.md \
-        --lane <枝の名前> --parent <分岐元のファイル名>
+python3 tools/make_handover.py --auto handover/dummy.md \
+        --name <承認された名前> --case <親の案件名> --parent <分岐元のファイル名>
 ```
 
-ファイル名は自動で `<案件名>.<枝名>_handover_latest.md` になります。
+`handover/<案件名>/<承認された名前>_handover_latest.md` に保存され、日付版も並びます。
+**あなたが訂正した名前はそのまま使います**（使えない文字だけを直し、語は足しません）。
 **枝の名前が決まるまでは保存しません。** 別のセッションが書いた引き継ぎを枝名なしで
 上書きしようとすると、**機械的に止まります**。
 

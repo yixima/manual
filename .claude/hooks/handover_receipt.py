@@ -41,8 +41,14 @@ def find(cwd):
     d = pathlib.Path(cwd) / 'handover'
     if not d.is_dir():
         return None, []
-    cands = [f for f in d.glob('*.md')
+    cands = [f for f in d.rglob('*.md')
              if f.is_file() and MARK in f.read_text(encoding='utf-8', errors='replace')]
+    # **日付版は履歴のコピーであって、引き継ぎの候補ではない。**
+    # 固定名（`_handover_latest.md`）があるなら、そちらだけを候補にする。
+    # これを除かないと、1本しか無い案件でも「複数ある」と誤って質問することになる。
+    latest = [f for f in cands if f.name.endswith('_handover_latest.md')]
+    if latest:
+        cands = latest
     cands.sort(key=lambda f: f.stat().st_mtime, reverse=True)
     if not cands:
         return None, []
@@ -77,7 +83,7 @@ def existing_lanes(cwd):
     d = pathlib.Path(cwd) / 'handover'
     if not d.is_dir():
         return out
-    for f in d.glob('*.md'):
+    for f in d.rglob('*.md'):
         try:
             _, lane, _ = lineage(f)
             if lane and lane not in out:
@@ -121,7 +127,7 @@ def my_lane(cwd, sid):
     d = pathlib.Path(cwd) / 'handover'
     if not d.is_dir():
         return ''
-    own = own_file(sorted(d.glob('*.md')), sid)
+    own = own_file(sorted(d.rglob('*.md')), sid)
     if not own:
         return ''
     return lineage(own)[1]
@@ -222,20 +228,24 @@ def main():
             body = section(raw, head)
             if body:
                 print(f"\n［{label}（枝名を考える材料）］\n{body}")
-        print("\n→ **上を読んだうえで、枝の名前を2〜3個提案し、"
-              "ユーザーに『一つだけ』質問すること**（§2-4）。")
-        print("→ 名前は **半角英数とハイフンのみ**（`^[A-Za-z0-9._-]+$`。§7-11）。"
-              "日本語の意味を1行添える（例：`survey`＝現地調査の枝）。")
+        case = lineage(f)[0] or case_from_name(f.name)
+        print("\n→ **上を読んだうえで、このセッションの引き継ぎファイルの名前を"
+              "2〜3個提案し、ユーザーに『一つだけ』質問すること**（§2-4）。")
+        print(f"→ 提案する名前は `{case}_〈このセッションで何をするか〉` の形にする。"
+              f"例：`{case}_omatsuri`（お祭り案件の申請作業）。")
+        print("→ **半角英数・ハイフン・アンダースコアのみ**（`^[A-Za-z0-9._-]+$`。§7-11）。"
+              "日本語の意味を1行添える。**日本語のままの名前は提案しない。**")
         print("→ **勝手に決めない。** 一度決めた名前は変えられない"
               "（変えると次のセッションから見えなくなる）。")
-        print("→ ユーザーが名前を指示したら、**その場で次を実行して最初の保存まで行う**："
-              "\n```\npython3 tools/make_handover.py --auto handover/"
-              f"{lineage(f)[0] or case_from_name(f.name)}_handover_latest.md \\\n"
-              f"        --lane <指示された名前> --parent {f.name}\n```"
-              "\n   （ファイル名は自動で `案件名.枝名_handover_latest.md` になる。"
-              "その後 `--seal` → `--check` を通す。）")
-        print("→ **枝分かれしない（この続きを1本で進める）とユーザーが答えたら、"
-              "枝名は付けない。** その場合は保存時に上書きの門番が働く。")
+        print("→ **ユーザーが承認（または訂正）したら、その場で次を実行して"
+              "最初の保存まで行う**：\n```\n"
+              "python3 tools/make_handover.py --auto handover/dummy.md \\\n"
+              "        --name <承認された名前> \\\n"
+              f"        --case {case} --parent {f.name}\n```"
+              f"\n   （`handover/{case}/<承認された名前>_handover_latest.md` に保存され、"
+              "日付版も並べて残る。その後 `--seal` → `--check` を通す。）")
+        print("→ **ユーザーが訂正した名前は、そのまま使う。** "
+              "使えない文字だけを直し、**語を足さない**（§7-11／L2 記録）。")
 
     print("\n→ **作業に入る前に、このファイルを全章読むこと。**"
           "第1章（依頼の原文）と付録B（応答の原文）は要約ではなく原文である。要約で代用しない。\n"
