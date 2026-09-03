@@ -1,6 +1,6 @@
 # 役割4：出題者（発動テストの作成）
 
-**使い方**：このファイルの「▼ここから」以降を ChatGPT に貼り、続けて `dist/L0_core_card_v16.md` の全文を貼る（**L1 は貼らない**）。
+**使い方**：このファイルの「▼ここから」以降を ChatGPT に貼り、続けて **コアカードの全文**を貼る（配布URL＝ https://raw.githubusercontent.com/yixima/manual/main/latest/L0_core_card.md 。**本編は貼らない**）。
 **目的**：**自分で作った問題は、自分が守りやすい問題になる。** 出題を外部化する。
 **出力の使い先**：`evals/cases.yaml` へ追記する。
 

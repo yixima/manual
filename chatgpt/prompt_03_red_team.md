@@ -1,6 +1,6 @@
 # 役割3：赤チーム（敵対的検査）
 
-**使い方**：このファイルの「▼ここから」以降を ChatGPT に貼り、続けて `dist/L0_core_card_v16.md` と `dist/L1_manual_v16.md` の全文を貼る。
+**使い方**：このファイルの「▼ここから」以降を ChatGPT に貼り、続けて **コアカードと本編の全文**（配布URL＝ https://raw.githubusercontent.com/yixima/manual/main/latest/manual_all_in_one.md ）を貼る。
 **目的**：設計者自身には見えない盲点を、敵対的に探させる。
 
 ---

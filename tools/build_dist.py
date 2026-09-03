@@ -154,6 +154,19 @@ check(not _stale, f'dist/ に旧版ファイルが残っていない', f'旧版:
 for p in DIST.glob('*'):
     check(bool(SAFE.match(p.name)), f'ファイル名 {p.name} が ASCII 安全', '非ASCIIを含む')
 
+# 8. 第三者監査パックが版に取り残されていないこと
+#    実測（2026-09-03）：監査パックは版番号を直書きしていたため、**19版ぶん古いまま**放置されていた。
+#    版番号を書かなければ古くならない——ブートローダーと同じ理屈である。
+_verref = re.compile(r'_v\d+\.md|manual_v\d+|core_card_v\d+|records_v\d+')
+_stale_audit = []
+for f in sorted(pathlib.Path('chatgpt').glob('*.md')):
+    for i, ln in enumerate(f.read_text(encoding='utf-8').splitlines(), 1):
+        if _verref.search(ln) and 'v13_v15' not in ln:   # 歴史的な文書名は対象外
+            _stale_audit.append(f'{f.name}:{i}')
+check(not _stale_audit,
+      '第三者監査パックが版番号を直書きしていない（古くならない形）',
+      f'版番号を直書き: {_stale_audit[:5]}')
+
 print('── 配布前検査（tools/build_dist.py）──')
 for s in ok: print(f'  [ok] {s}')
 for s in ng: print(f'  [NG] {s}')

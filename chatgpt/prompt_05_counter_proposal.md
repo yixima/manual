@@ -1,6 +1,6 @@
 # 役割5：対案生成
 
-**使い方**：このファイルの「▼ここから」以降を ChatGPT に貼り、続けて①こちらの改訂案 ②`docs/02_audit_v13_v15.md` ③`dist/L0_core_card_v16.md` を貼る。
+**使い方**：このファイルの「▼ここから」以降を ChatGPT に貼り、続けて①こちらの改訂案 ②`docs/02_audit_v13_v15.md` ③**コアカードの全文**（ https://raw.githubusercontent.com/yixima/manual/main/latest/L0_core_card.md ）を貼る。
 **目的**：一案しか出さないことによる固着を外す。
 
 ---
