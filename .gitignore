@@ -10,7 +10,10 @@ manual_v*_deliverables_*.zip
 
 # 引き継ぎファイルは会話の原文を含むため、既定では追跡しない（L1 §10-5・§8-4）。
 # 共有する必要があるときだけ、中身を確認したうえで `git add -f` する。
-handover/*.md
+# `handover/*.md` だけでは、README が定める案件フォルダ
+# （`handover/<案件名>/<名前>_handover_latest.md`）に届かず、
+# 会話の原文がそのまま追跡対象になってしまう。深さを問わず除外する。
+handover/**/*.md
 !handover/README.md
 
 # フックがセッションごとに置く目印（同じセッションで二度動かないようにするためのもの）。
