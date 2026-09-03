@@ -211,8 +211,30 @@ def fillable(text):
     return "\n".join(out)
 
 
+SLOT_TABLE = re.compile(r'\|\s*' + re.escape(TODO) + r'\s*(?=\||$)')
+SLOT_LINE = re.compile(r'(?:^|[：:]|^\s*[-*\d]+[.)]?\s*)\s*' + re.escape(TODO), re.M)
+
+
 def todo_count(text):
-    return fillable(text).count(TODO)
+    """**記入欄だけ**を数える。原文の中に現れた同じ文字列は数えない。
+
+    `fillable()` は引用・コード・鉤括弧を落とすが、**表のセルに入った原文**は残る。
+    記録から自動で入る「失敗の一覧」には、過去のコマンド出力がそのまま入るため、
+    そこに `【要記入】` の語を含む行があると、**記入欄として数えられてしまう**。
+    実際に起きた（2026-09-03）——検査の合格出力
+    「[ok] 【要記入】 が残っていない」が記録に取り込まれ、**未記入1件として差し戻された**。
+
+    記入欄は、次のどちらかの形をしている。
+      - 表のセル**そのもの**（`| 【要記入】 |`）
+      - 行頭・箇条書きの直後・`：` の直後
+    **文の途中に現れたものは、記入欄ではない。**
+
+    （これは v25・v27 の型I 誤検知、v22 の記入欄誤認と**同じ型**である。
+      原文の中に何が書いてあっても、それはこの応答の記入欄ではない。4度目の再発。）
+    """
+    t = fillable(text)
+    return len(SLOT_TABLE.findall(t)) + len(
+        [m for m in SLOT_LINE.finditer(t) if '|' not in t[max(0, m.start() - 80):m.start()].split('\n')[-1]])
 
 # ── ①記録から作る（[Code]）──────────────────────────────────
 def case_from(out):
