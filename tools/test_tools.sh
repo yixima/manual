@@ -28,7 +28,7 @@ python3 tools/build_dist.py > /dev/null 2>&1; chk "復元後は再び合格す�
 
 echo "── make_handover.py ──"
 python3 tools/make_handover.py --new "$TMP/h.md" > /dev/null 2>&1; chk "雛形を生成できる" 0 $?
-python3 tools/make_handover.py --check dist/handover_template_v35.md > /dev/null 2>&1; chk "未記入テンプレートは不合格（異常系）" 1 $?
+python3 tools/make_handover.py --check dist/handover_template_v36.md > /dev/null 2>&1; chk "未記入テンプレートは不合格（異常系）" 1 $?
 python3 - "$TMP/h.md" "$TMP/h2.md" <<'PY'
 import pathlib, sys
 t = pathlib.Path(sys.argv[1]).read_text(encoding='utf-8')
@@ -81,7 +81,7 @@ grep -q "【要記入】" "$TMP/auto.md" && chk "理由の欄に【要記入】�
 python3 tools/make_handover.py --check "$TMP/auto.md" > /dev/null 2>&1
 chk "【要記入】が残っていれば検査に落ちる（異常系）" 1 $?
 
-# --- 回帰（v35）：理由を書き足すと指紋が外れる。--seal で封をし直せば --check が通ること ---
+# --- 回帰（v36）：理由を書き足すと指紋が外れる。--seal で封をし直せば --check が通ること ---
 # 実測で見つけた設計の矛盾。「理由を埋めよ」と「指紋を保て」が同時に成立していなかった。
 python3 - "$TMP/auto.md" "$TMP/sealed.md" <<'PYT'
 import pathlib, sys
@@ -101,7 +101,7 @@ grep -q "一致。生成時" "$TMP/sr.txt" && chk "封のあとも指紋一致�
 python3 tools/make_handover.py --seal "$TMP/sealed.md" > "$TMP/sr2.txt" 2>&1
 grep -q "封をし直す必要は無い" "$TMP/sr2.txt" && chk "一致しているファイルへの --seal は何もしない" 0 0 || chk "一致しているファイルへの --seal は何もしない" 0 1
 
-# --- 案件名の機械的な正規化（v35）：2026-09-02 の事案 ---
+# --- 案件名の機械的な正規化（v36）：2026-09-02 の事案 ---
 # ユーザーが「kobo anken」と指定したのに、別のセッションが
 # `kobo_anken_hikitsugi_20260902_v1.md` を作った（語を足し、固定名を作らなかった）。
 mkj3() { python3 -c "
@@ -133,11 +133,16 @@ python3 tools/make_handover.py --auto "$TMP/nm/東京案件_handover_latest.md" 
 chk "英数を含まない案件名では勝手に名前を付けず止まる（異常系）" 1 $?
 grep -q "一つだけ質問" "$TMP/nm2.txt" && chk "止めたとき質問するよう促す" 0 0 || chk "止めたとき質問するよう促す" 0 1
 
-# --- 承認された名前で作る／案件フォルダで整理する（v35）---
+# --- 承認された名前で作る／案件フォルダで整理する（v36）---
 mkdir -p "$TMP/rc/handover"
 mkj3 "$TMP/rc.jsonl"
 python3 tools/make_handover.py --auto "$TMP/rc/handover/dummy.md" --name "kobo anken omatsuri" --case kobo_anken --transcript "$TMP/rc.jsonl" > "$TMP/rc.txt" 2>&1
 chk "承認された名前で保存できる" 0 $?
+head -30 "$TMP/rc/handover/kobo_anken/kobo_anken_omatsuri_handover_latest.md" > "$TMP/hd.txt"
+grep -q "受け取ったセッションが、最初にすること" "$TMP/hd.txt" && chk "引き継ぎの先頭に「最初にすること」が入る（v36）" 0 0 || chk "引き継ぎの先頭に「最初にすること」が入る（v36）" 0 1
+grep -q "他の作業に着手しない" "$TMP/hd.txt" && chk "他の作業より先だと明記する（順序）" 0 0 || chk "他の作業より先だと明記する（順序）" 0 1
+grep -q "他の質問と束ねない" "$TMP/hd.txt" && chk "他の質問と束ねないと明記する（回帰）" 0 0 || chk "他の質問と束ねないと明記する（回帰）" 0 1
+grep -q "候補を出すのがこちらの仕事" "$TMP/hd.txt" && chk "丸投げを禁じている" 0 0 || chk "丸投げを禁じている" 0 1
 [ -f "$TMP/rc/handover/kobo_anken/kobo_anken_omatsuri_handover_latest.md" ] && chk "案件フォルダの中に固定名で入る" 0 0 || chk "案件フォルダの中に固定名で入る" 0 1
 ls "$TMP/rc/handover/kobo_anken"/kobo_anken_omatsuri_handover_2*_v1.md >/dev/null 2>&1
 chk "枝にも自分の日付版ができる（親のと混ざらない）" 0 $?
@@ -156,7 +161,7 @@ n_td=$(find "$TMP/td/handover" -type f | wc -l)
 [ "$n_td" = "3" ] && chk "片付けで件数が変わらない（§8-5）" 0 0 || chk "片付けで件数が変わらない（§8-5）" 0 1
 
 
-# --- 枝分かれ（v35）：1つの作業が2つ以上のセッションへ分かれるとき ---
+# --- 枝分かれ（v36）：1つの作業が2つ以上のセッションへ分かれるとき ---
 mkj2() { python3 -c "
 import sys,pathlib,json
 sid=sys.argv[2]
