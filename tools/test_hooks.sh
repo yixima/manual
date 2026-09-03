@@ -18,6 +18,11 @@ chk "正常終了" 0 $rc
 echo "$out" | grep -q "現在日時" && chk "現在日時が注入される" 0 0 || chk "現在日時が注入される" 0 1
 echo "$out" | grep -qE "[0-9]{4}-[0-9]{2}-[0-9]{2}" && chk "実測した日付が入っている" 0 0 || chk "実測した日付が入っている" 0 1
 chk "入力が空でも落ちない" 0 "$(echo '' | python3 .claude/hooks/inject_gate.py >/dev/null 2>&1; echo $?)"
+# v38：離れている間も進める手段を、毎ターン注入する関門に載せる（2026-09-03 の指摘）
+g_out=$(echo "{\"cwd\":\"$PWD\"}" | python3 .claude/hooks/inject_gate.py 2>&1)
+grep -q "run_in_background" <<<"$g_out" && chk "関門に「裏で走らせる」手段が載る" 0 0 || chk "関門に「裏で走らせる」手段が載る" 0 1
+grep -q "ターンを終える" <<<"$g_out" && chk "ターン終了＝停止だと毎ターン伝える" 0 0 || chk "ターン終了＝停止だと毎ターン伝える" 0 1
+grep -q "待たせるだけの「実行中」は嘘" <<<"$g_out" && chk "走っていない「実行中」を禁じる" 0 0 || chk "走っていない「実行中」を禁じる" 0 1
 # 劣化判定＝負荷スコア方式（往復数は補助指標）
 W=$(mktemp -d); mkdir -p "$W/dist"
 # 記録は「実際の往復（ユーザーの発言）」と「道具の呼び出し・結果」が混在する。
@@ -108,6 +113,16 @@ rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-t
 msg_out2=$(run_err "$(J '調査は終わりました。残りの作業が残っています。')")
 echo "$msg_out2" | grep -q "同じ応答を出し直して" && chk "「同じ応答を出し直せ」と言わない（回帰）" 0 1 || chk "「同じ応答を出し直せ」と言わない（回帰）" 0 0
 rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
+# v38：本文で先の作業を宣言しながら状態行が「完了」なのは、状態の誤報として差し戻す
+rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
+d1=$(python3 -c "print('作業の報告です。'*30 + '次に設定を反映します。— 状態：完了　次：不要')")
+chk "【型H】宣言したのに「完了」なら差し戻す" 2 "$(run "$(J "$d1")")"
+rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
+d2=$(python3 -c "print('作業の報告です。'*30 + '次に設定を反映します。— 状態：実行中　次：お待ちください')")
+chk "【型H】状態が「実行中」なら通す（正しい書き方）" 0 "$(run "$(J "$d2")")"
+rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
+d3=$(python3 -c "print('作業の報告です。'*30 + '「次に反映します」と書いてはいけない。— 状態：完了　次：不要')")
+chk "【型H】引用の中の宣言では発火しない（誤検知の回帰）" 0 "$(run "$(J "$d3")")"
 rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
 jarg=$(python3 -c "print('詳しい説明。'*60 + 'フックを使って強制します。出力契約も適用します。')")
 chk "【型J】初出の専門用語に説明が無ければ差し戻す" 2 "$(run "$(J "$jarg")")"
