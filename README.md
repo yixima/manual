@@ -1,4 +1,4 @@
-# 汎用マニュアル v41 ＋ 発動・検証・改善の仕組み
+# 汎用マニュアル v42 ＋ 発動・検証・改善の仕組み
 
 AIエージェント（Claude）のセッションに対する運用マニュアルを、**書いて終わりにせず、実際に発動し、発動したかを測り、測った結果で改善する**ための一式。
 
@@ -6,12 +6,12 @@ AIエージェント（Claude）のセッションに対する運用マニュア
 
 ```
 dist/                    ← 配布物（これを各所に貼る）
-  L0_core_card_v41.md      コアカード（152行）★常時コンテキストに載せる中核
-  L0_core_card_mini_v41.md 短縮版（79行）設定欄の文字数上限で全文が入らない場合の代替
-  L1_manual_v41.md         本編（全条文・無省略・124条項）
-  L2_records_v41.md        失敗記録（29件）・附則・付録
-  manual_v41_all_in_one.md すでに開いているセッションに添付する1ファイル（L0+L1+L2）
-  handover_template_v41.md 引き継ぎのテンプレート（記録が残らない [Chat]/[Cowork] 用）
+  L0_core_card_v42.md      コアカード（152行）★常時コンテキストに載せる中核
+  L0_core_card_mini_v42.md 短縮版（79行）設定欄の文字数上限で全文が入らない場合の代替
+  L1_manual_v42.md         本編（全条文・無省略・124条項）
+  L2_records_v42.md        失敗記録（29件）・附則・付録
+  manual_v42_all_in_one.md すでに開いているセッションに添付する1ファイル（L0+L1+L2）
+  handover_template_v42.md 引き継ぎのテンプレート（記録が残らない [Chat]/[Cowork] 用）
   DISTRIBUTION.md          6箇所への配布手順
 .claude/                 ← L3 フック層（Claude Code のみ・機械的強制）
   settings.json            フックの登録
@@ -46,7 +46,7 @@ source/                  ← 原本 v13 / v15（改変せず保持）
    → 「今日」「現在」「最新」を**現在日時に依存する事実主張**と定義し、毎ターン実測した日時を自動注入するようにした。
 7. **自作のテストを自分で採点していた。** §0-12 自身が「実運用の遵守を証明しない」と認めていた。
    → **ChatGPT を5つの役割で組み込んだ。** 中でも**盲検採点**（マニュアルを見せずに採点させる）が中核。
-8. **引き継ぎが「記憶から書き写す作業」だった。**（v22 で作り替えた。以後 v41 まで改良を重ねている）
+8. **引き継ぎが「記憶から書き写す作業」だった。**（v22 で作り替えた。以後 v42 まで改良を重ねている）
    書き写しは、①手間がかかる ②**劣化したセッションほど精度が落ちる**（最も書き写しが下手な状態で書き写させていた）
    ③要約で原文が失われ、**何が失われたか受け取った側から見えない**——という欠陥を同時に持つ。
    → **記録から生成し、届いたことを機械で照合する**方式へ変えた。
@@ -60,7 +60,7 @@ source/                  ← 原本 v13 / v15（改変せず保持）
 ## 使い始める
 
 ```bash
-python3 tools/audit_activation.py dist/L1_manual_v41.md --records dist/L2_records_v41.md   # 発動構造の検査
+python3 tools/audit_activation.py dist/L1_manual_v42.md --records dist/L2_records_v42.md   # 発動構造の検査
 python3 tools/build_dist.py                                                                # 配布前の整合検査
 ./tools/test_hooks.sh                                                                      # フックの起動検証（53件）
 ./tools/test_tools.sh                                                                      # スクリプトの起動検証（70件）
@@ -90,10 +90,10 @@ python3 tools/install.py             # Claude Code の全プロジェクト＋Co
 
 残るのは**2箇所への貼り付けだけ**です。
 
-1. **claude.ai → 設定 →「Claudeへの指示」** に `dist/L0_core_card_v41.md` の全文を貼る → **すべての会話・すべてのプロジェクト**に効く
+1. **claude.ai → 設定 →「Claudeへの指示」** に `dist/L0_core_card_v42.md` の全文を貼る → **すべての会話・すべてのプロジェクト**に効く
 2. **Cowork → 設定 → Cowork →「グローバル指示」** に同じ全文を貼る → **すべての Cowork セッション**に効く
 
-文字数の上限で入らない場合は `dist/L0_core_card_mini_v41.md`（4,136字）を使う。
+文字数の上限で入らない場合は `dist/L0_core_card_mini_v42.md`（4,136字）を使う。
 詳細は `dist/DISTRIBUTION.md`。
 
 ## セッションを移るとき（引き継ぎ）
@@ -120,7 +120,7 @@ python3 tools/make_handover.py --receipt handover/myproject_handover_20260901_v1
 一方、**届いたかどうかは機械で確かめられる。** 確かめる対象を「理解」から「到達」へ移している。
 
 **`[Chat]` `[Cowork]` には会話の記録が無いため、自動生成できない。**
-その環境では `dist/handover_template_v41.md` を使い、**節目ごとに同じファイルを作り直す**（§0-5）。
+その環境では `dist/handover_template_v42.md` を使い、**節目ごとに同じファイルを作り直す**（§0-5）。
 一度に全部を思い出そうとしないことが、精度と負担の両方に効く。
 
 - 記入済みの実例：`docs/examples/handover_20260828_v1_example.md`

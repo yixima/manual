@@ -1,8 +1,8 @@
 {
-  "version": "v41",
+  "version": "v42",
   "issued": "2026年9月4日",
   "core_card": "https://raw.githubusercontent.com/yixima/manual/main/latest/L0_core_card.md",
   "all_in_one": "https://raw.githubusercontent.com/yixima/manual/main/latest/manual_all_in_one.md",
-  "sha256_core_card": "fbe8348edade709b",
+  "sha256_core_card": "5087c6c24a73a8f3",
   "note": "版番号を含まない固定URL。中身だけが更新される。貼り直しは不要。"
 }
