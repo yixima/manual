@@ -16,6 +16,22 @@ import json, sys, re, os, pathlib
 DELIVERY_DIRS = ('dist/', 'out/', 'deliverables/', 'share/')
 SAFE_NAME = re.compile(r'^[A-Za-z0-9._-]+$')
 
+# D. 生成物の直接編集の禁止（CLAUDE.md 冒頭の第1規約・§2-9）
+#    dist/ には手書き原本（L0 カード・handover_template）と生成物が同居している。
+#    生成物を直接編集しても、発行前検査の中で生成スクリプトが**黙って元に戻す**——
+#    エラーも差分も出ず、「追加した」はずの変更が配布されない（実測 2026-09-09：
+#    v46 で dist/bootloader.md へ直接書いた規則が build_latest.py に上書きされ、
+#    v47 発行時まで配布物から消えていた。L2 記録参照）。
+GENERATED = [
+    (re.compile(r'(^|/)dist/L1_manual_v\d+\.md$'),          'tools/build_manual.py'),
+    (re.compile(r'(^|/)dist/L2_records_v\d+\.md$'),         'tools/build_manual.py'),
+    (re.compile(r'(^|/)dist/L0_core_card_mini_v\d+\.md$'),  'tools/build_mini.py'),
+    (re.compile(r'(^|/)dist/manual_v\d+_all_in_one\.md$'),  'tools/build_allinone.py'),
+    (re.compile(r'(^|/)dist/bootloader\.md$'),              'tools/build_latest.py'),
+    (re.compile(r'(^|/)dist/DISTRIBUTION\.md$'),            'tools/build_dist.py'),
+    (re.compile(r'(^|/)latest/(latest\.json|L0_core_card\.md|manual_all_in_one\.md)$'), 'tools/build_latest.py'),
+]
+
 # B. 退避なしでは通さない破壊的コマンド
 DANGEROUS = [
     (re.compile(r'\brm\s+(-[a-zA-Z]*r[a-zA-Z]*f|-[a-zA-Z]*f[a-zA-Z]*r)\b'), 'rm -rf'),
@@ -90,6 +106,14 @@ def main():
                 deny(f"§7-11 違反：納品ディレクトリのファイル名 `{name}` が "
                      f"^[A-Za-z0-9._-]+$ に適合しません。半角英数・ハイフン・アンダースコア・"
                      f"ドットのみの名前へ変更してください（日本語タイトルはファイル内部かキャプションへ）。")
+
+        # D. 生成物の直接編集の禁止
+        for rx, gen in GENERATED:
+            if rx.search(norm):
+                deny(f"生成物の直接編集：`{norm.rsplit('/', 1)[-1]}` は `{gen}` が生成するファイルです。"
+                     f"直接編集しても、発行前検査の中で生成スクリプトが**黙って元に戻します**——"
+                     f"エラーも差分も出ないまま、変更は配布されません（実測 2026-09-09・L2 記録参照）。"
+                     f"編集は `{gen}` の側に書き、再生成してください。")
 
     # B. 不可逆操作
     if tool == "Bash":

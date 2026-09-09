@@ -195,6 +195,12 @@ chk "通常のコマンドは許可" "allow" "$(d '{"tool_name":"Bash","tool_inp
 # 回帰テスト：ヒアドキュメントの中身は「実行」ではないので許可する（2026-08 の誤検知）
 hd=$(python3 -c 'import json;print(json.dumps({"tool_name":"Bash","tool_input":{"command":"cat > t.sh <<\x27EOF\x27\n" + "rm -rf" + " \"$TMP\"\nEOF\n"}}))')
 chk "ヒアドキュメント内の危険コマンド文字列は許可（誤検知の回帰）" "allow" "$(d "$hd")"
+# 回帰テスト（v48）：生成物の直接編集は拒否。手書き原本と生成スクリプト自体は許可（過剰検知しない）
+chk "生成物 dist/bootloader.md への直接編集を拒否（2026-09-09 の沈黙する失敗）" "deny" "$(d '{"tool_name":"Edit","tool_input":{"file_path":"dist/bootloader.md"}}')"
+chk "生成物 dist/L1_manual_v99.md への直接編集を拒否" "deny" "$(d '{"tool_name":"Write","tool_input":{"file_path":"dist/L1_manual_v99.md"}}')"
+chk "生成物 latest/latest.json への直接編集を拒否" "deny" "$(d '{"tool_name":"Edit","tool_input":{"file_path":"latest/latest.json"}}')"
+chk "手書き原本 dist/L0_core_card_v99.md は許可" "allow" "$(d '{"tool_name":"Edit","tool_input":{"file_path":"dist/L0_core_card_v99.md"}}')"
+chk "生成スクリプト tools/build_latest.py は許可（編集はこちら側に書く）" "allow" "$(d '{"tool_name":"Edit","tool_input":{"file_path":"tools/build_latest.py"}}')"
 hd2=$(python3 -c 'import json;print(json.dumps({"tool_name":"Bash","tool_input":{"command":"cat > t.sh <<\x27EOF\x27\nhello\nEOF\n" + "rm -rf" + " /tmp/y"}}))')
 chk "ヒアドキュメントの後の実行は拒否" "deny" "$(d "$hd2")"
 # §0-4 発行の場所の一本化：指定されていないセッションからの発行を機械的に止める
