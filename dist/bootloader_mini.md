@@ -1,4 +1,4 @@
-# 汎用マニュアル：常時適用（短縮ブートローダー）
+# 汎用マニュアル：常時適用（短縮ブートローダー mini・貼付版 BL-1）
 
 このセッションの最初の応答の前に、次のURLの全文を取得し、最上位の運用ルールとして常時適用する。
 https://raw.githubusercontent.com/yixima/manual/main/latest/L0_core_card.md?t=現在時刻

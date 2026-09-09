@@ -160,8 +160,29 @@ def main():
 - 取得できないときは、その旨を1行申告し、最低限これを守る：事実主張に【確認済（出典）／未確認・推測／不明】のラベル／応答末尾に「— 状態：…　次：…」の1行／指示された作業は「質問が必要・承認待ち・エラー・危険」以外の理由で中断しない。
 - ユーザーの知る版と食い違ったら、相手ではなく自分の取得を疑う。
 """
+    # 貼付版番号（BL-n）＝設定欄に貼られている起動文が最新かを、冒頭の1行で見分ける通し番号。
+    # ユーザー提案（2026-09-09）：claude.ai とアプリの欄が同じ番号なら同期済みと一目で分かる。
+    # 番号は**内容が変わったときだけ自動で1つ進む**（手動更新は書き忘れて必ず腐るため、
+    # 番号を除いた本文のハッシュで変化を判定する）。full と mini は同じ番号を共有する——
+    # 「すべての欄が同じ BL-n を名乗っていれば正しい」という単純な検算にするため。
+    _rev_file = pathlib.Path('tools/boot_rev.json')
+    _h = hashlib.sha256((boot + boot_mini).encode('utf-8')).hexdigest()[:16]
+    try:
+        _st = json.loads(_rev_file.read_text(encoding='utf-8'))
+    except Exception:
+        _st = {"hash": "", "rev": 0}
+    if _st.get("hash") != _h:
+        _st = {"hash": _h, "rev": int(_st.get("rev", 0)) + 1}
+        _rev_file.write_text(json.dumps(_st, ensure_ascii=False) + "\n", encoding='utf-8')
+    _bl = f'BL-{_st["rev"]}'
+    boot = boot.replace('# 汎用マニュアル：常時適用（ブートローダー）',
+                        f'# 汎用マニュアル：常時適用（ブートローダー full・貼付版 {_bl}）', 1)
+    boot_mini = boot_mini.replace('# 汎用マニュアル：常時適用（短縮ブートローダー）',
+                                  f'# 汎用マニュアル：常時適用（短縮ブートローダー mini・貼付版 {_bl}）', 1)
+    (d / 'bootloader.md').write_text(boot, encoding='utf-8')
     (d / 'bootloader_mini.md').write_text(boot_mini, encoding='utf-8')
     print(f'  dist/bootloader_mini.md     {len(boot_mini.splitlines())} 行 / {len(boot_mini):,} 文字  ← Cowork の設定欄用（文字数上限対策）')
+    print(f'  貼付版番号: {_bl}（full と mini で共通。内容が変わると自動で進む）')
     print(f'latest/ を更新した（{ver} / {date}）')
     print(f'  latest/L0_core_card.md      {(L / "L0_core_card.md").stat().st_size:,} バイト')
     print(f'  latest/manual_all_in_one.md {(L / "manual_all_in_one.md").stat().st_size:,} バイト')
