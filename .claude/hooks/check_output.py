@@ -69,7 +69,7 @@ RE_STATE = re.compile(r'(—\s*状態[:：])|(【この応答で完了したこ�
 
 # R3【型A】【確認済】と書きながら出典がない（L1 §3-1「出典URLを併記する」）
 RE_VERIFIED = re.compile(r'【確認済】')
-RE_SOURCE = re.compile(r'(https?://)|(出典[:：])|(一次資料)|(`[^`]+\.(md|py|sh|json|ya?ml)`)')
+RE_SOURCE = re.compile(r'(https?://)|(出典[:：＝=])|(一次資料)|(`[^`]+\.(md|py|sh|json|ya?ml)`)')
 
 # R4【型I】未完了で終わるのに中断の理由が書かれていない（L1 §2-9 完遂義務）
 # 「未完了」という語が**一覧や説明の中に現れただけ**では発火させない。
@@ -170,9 +170,9 @@ ESCAPE_PHRASE = '本件の可否には影響しない'
 def unverified_before_irreversible(msg):
     """同じ行に「不可逆・外向きの操作」と「承認を求める言い回し」が並んでいるかで判定する。
     離れた位置の語をつなげて判定すると誤検知が増えるため、行単位に限る。"""
-    if not RE_UNVERIFIED.search(msg) or ESCAPE_PHRASE in msg:
+    if not RE_UNVERIFIED.search(plain(msg)) or ESCAPE_PHRASE in msg:
         return False
-    for ln in msg.splitlines():
+    for ln in plain(msg).splitlines():
         if RE_IRREVERSIBLE.search(ln) and RE_ASKING.search(ln):
             return True
     return False
@@ -189,16 +189,19 @@ def evaluate(msg, cfg, cwd='.', session='x'):
     if r.get("declaration_without_action", True) and RE_DECL.search(tail):
         viol.append(("型H", "着手宣言で応答が終わっている。宣言した作業を同じ応答内で実行するか、"
                             "実行できないなら【この応答で完了したこと】／【未完了】／【次に最初に行うこと】を書く（§2-17／§2-18）。"))
-    if r.get("declaration_without_action", True) and RE_STATE_DONE.search(msg) \
+    if r.get("declaration_without_action", True) and RE_STATE_DONE.search(plain(msg)) \
             and RE_DECL_ANY.search(plain(msg)):
         viol.append(("型H", "本文で先の作業を宣言しているのに、状態行が「完了」になっている。"
                             "**宣言した作業を同じ応答内で実行する**か、状態を「実行中／入力待ち」に改め、"
                             "【未完了】と中断の理由を書く（§2-17／§2-9／§2-15）。"
                             "離れている間も進めたいなら、長い処理は `run_in_background` で走らせる。"))
-    if r.get("missing_state_line", True) and len(msg) > 400 and RE_WORK.search(msg) and not RE_STATE.search(msg):
+    if r.get("missing_state_line", True) and len(msg) > 400 and RE_WORK.search(plain(msg)) and not RE_STATE.search(msg):
         viol.append(("型B", "作業を報告しているが状態行がない。末尾に1行「— 状態：… 次：…」を付ける"
                             "（すべきことがなければ『次：不要』と明記する）（§2-15／§0-15）。"))
-    if r.get("unsourced_verified_label", True) and RE_VERIFIED.search(msg) and not RE_SOURCE.search(msg):
+    # 原則（v55）：**違反の引き金となる語は plain(msg)（地の文）から探し、免罪の証拠（出典・状態行）は
+    # 本文全体から探す**。引用・コードの中の語で違反を疑うのは誤検知（実測：型K 2026-09-09 2回、型A 同日1回。
+    # v49 の教訓「共通対策を全項目が使っているか数える」を型Kにしか適用していなかった——今回全項目を揃えた）。
+    if r.get("unsourced_verified_label", True) and RE_VERIFIED.search(plain(msg)) and not RE_SOURCE.search(msg):
         viol.append(("型A", "【確認済】と書いているが出典が併記されていない。出典を書けないなら"
                             "【未確認・推測】へ落とす（§3-1）。"))
     if r.get("unexplained_incomplete", True) and has_incomplete(msg) and not RE_REASON.search(msg):
