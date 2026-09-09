@@ -136,6 +136,10 @@ rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-t
 tmok=$(python3 -c "print('詳しい説明。'*60 + '本日（2026-08-27 JST）時点で最新の状況です。')")
 chk "【型K】基準日を書けば通す" 0 "$(run "$(J "$tmok")")"
 rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
+# 回帰（v49）：コードブロックの中の「最新」「期限」では発火しない（2026-09-09 の誤検知・2回連続）
+tmcb=$(python3 -c "print('貼り付け用の文章を下に示します。'*30 + chr(10) + chr(96)*3 + chr(10) + '自動で最新に保つ。期限を守る。' + chr(10) + chr(96)*3)")
+chk "【型K】コードブロック内の日時語では発火しない（誤検知の回帰）" 0 "$(run "$(J "$tmcb")")"
+rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test
 r1=$(run "$(J 'これから実装に着手します。')"); r2=$(run "$(J 'これから実装に着手します。')")
 chk "同一応答の差し戻しは1回まで（無限ループ防止）" "2 0" "$r1 $r2"
 rm -f "$CLAUDE_MANUAL_METRICS"/.stopguard-test "$CLAUDE_MANUAL_METRICS"/.terms-test

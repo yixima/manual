@@ -216,7 +216,11 @@ def evaluate(msg, cfg, cwd='.', session='x'):
                                   "小さなプログラム）」（§2-13）。"))
         else:
             add_seen(cwd, session, [t for t in jargon_terms(cwd) if t in msg])
-    if r.get("undated_time_reference", True) and RE_TIMEREF.search(msg) and not RE_DATE.search(msg) and len(msg) > 300:
+    # 型K は plain(msg)（＝引用・コード・鉤括弧を除いた地の文）だけを見る。
+    # 貼り付け用に提示したコードブロックの中の「最新」「期限」で誤発火した実測がある
+    # （2026-09-09・2回連続。plain() は 2026-08 の同型の誤検知対策として既にあったのに、
+    # 型K だけが生の本文を見ていた＝規定と実装の食い違い。L2 記録参照）。
+    if r.get("undated_time_reference", True) and RE_TIMEREF.search(plain(msg)) and not RE_DATE.search(msg) and len(msg) > 300:
         viol.append(("型K", "「今日」「現在」「最新」など日時に依存する記述があるが、基準となる日付が書かれていない。"
                             "毎ターン注入される現在日時を基準にし、本文に基準日を明記する（§3-7）。"))
     if r.get("unverified_before_irreversible", True) and unverified_before_irreversible(msg):
