@@ -2,7 +2,9 @@
   "_comment": "案件台帳＝受け口（claude_handover/）に「あるべき引き継ぎ」の一覧。状況ボードはこれと実物を毎朝照合し、『台帳にあるのに受け口に無い』を警告する。欠落は目には映らない（§7-7②）——あるべきものの一覧が無ければ、無いことを検査できない。ユーザーが案件・枝を宣言したら本セッションがここへ追記する。",
   "cases": {
     "manual": {
-      "expected": ["manual_handover_latest.md"]
+      "expected": [
+        "manual_handover_latest.md"
+      ]
     },
     "kobo_anken": {
       "expected": [
@@ -13,10 +15,11 @@
     },
     "naikakuhu_as": {
       "expected": [
+        "naikakuhu_as_handover_latest.md",
         "naikakuhu_as_shuttennsha_handover_latest.md",
         "naikakuhu_london_handover_latest.md"
       ],
-      "_note": "naikakuhu_london は 2026-09-09 22:51 JST ユーザー報告——引き継ぎ作成を指示済みなのに未作成。枝は親案件フォルダに入れる（§5.6 枝ごとにフォルダを分けない）"
+      "_note": "親案件の固定名は 2026-09-11 に救出セッションが保存（50,192B）。枝は親案件フォルダに入れる（§5.6 枝ごとにフォルダを分けない）——london の別フォルダ移動提案は不承認"
     }
   }
 }
