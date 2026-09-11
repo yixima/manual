@@ -38,6 +38,13 @@ for k, p in FILES.items():
 n = len(txt['L0'].splitlines())
 check(n <= 200, f'L0 の行数 {n} 行 ≦ 200 行（§0-14 の物理上限）', f'{n} 行あり超過')
 
+# 1b. カード冒頭に現行版以外の版表記が残っていないこと（v58で新設）
+#     実測 2026-09-11：手作業の版上げの置換ミスで、冒頭の「記録＝L2_records_v55.md」が
+#     2版にわたり配布された。「現行版がある」の検査はあったが「旧版が無い」の検査が無かった。
+_head = '\n'.join(txt['L0'].splitlines()[:8])
+_others = sorted(set(re.findall(r'v\d+', _head)) - {VER})
+check(not _others, f'カード冒頭8行の版表記が {VER} のみ（旧版の残存なし）', f'旧版が残存: {_others}')
+
 # 2. 関門9項の一致（表現ではなく「各項が指す条項番号の集合」で照合する）
 #    L0 は短縮表現を用いるが、指し示す条項は L1 と同一でなければならない。
 def gate_items(t, anchor):
