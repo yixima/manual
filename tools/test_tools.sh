@@ -25,7 +25,7 @@ printf '\n| わざと不一致にする行 | 検査が落ちることの確認 |
 python3 tools/build_dist.py > /dev/null 2>&1; chk "不一致があれば異常終了する（異常系）" 1 $?
 cp "$TMP/bak.md" "$CARD"
 python3 tools/build_dist.py > /dev/null 2>&1; chk "復元後は再び合格する" 0 $?
-# 回帰（v58）：カード冒頭に旧版表記が残ると落ちる（2026-09-11 の実測——L2 参照が2版前のまま配布された）
+# 回帰（v59）：カード冒頭に旧版表記が残ると落ちる（2026-09-11 の実測——L2 参照が2版前のまま配布された）
 cp "$CARD" "$TMP/bak2.md"
 python3 - "$CARD" <<'PY'
 import pathlib, sys
@@ -33,13 +33,13 @@ p = pathlib.Path(sys.argv[1]); ls = p.read_text(encoding='utf-8').splitlines(Tru
 ls[4] = ls[4].rstrip('\n') + '（旧版の残存テスト v11）\n'
 p.write_text(''.join(ls), encoding='utf-8')
 PY
-python3 tools/build_dist.py > /dev/null 2>&1; chk "冒頭に旧版表記が残ると落ちる（異常系・v58）" 1 $?
+python3 tools/build_dist.py > /dev/null 2>&1; chk "冒頭に旧版表記が残ると落ちる（異常系・v59）" 1 $?
 cp "$TMP/bak2.md" "$CARD"
-python3 tools/build_dist.py > /dev/null 2>&1; chk "復元後は再び合格する（v58）" 0 $?
+python3 tools/build_dist.py > /dev/null 2>&1; chk "復元後は再び合格する（v59）" 0 $?
 
 echo "── make_handover.py ──"
 python3 tools/make_handover.py --new "$TMP/h.md" > /dev/null 2>&1; chk "雛形を生成できる" 0 $?
-python3 tools/make_handover.py --check dist/handover_template_v58.md > /dev/null 2>&1; chk "未記入テンプレートは不合格（異常系）" 1 $?
+python3 tools/make_handover.py --check dist/handover_template_v59.md > /dev/null 2>&1; chk "未記入テンプレートは不合格（異常系）" 1 $?
 python3 - "$TMP/h.md" "$TMP/h2.md" <<'PY'
 import pathlib, sys
 t = pathlib.Path(sys.argv[1]).read_text(encoding='utf-8')
@@ -47,6 +47,8 @@ for s in ["1. 依頼の原文","3. 却下した案","5. セッション中の調
           "7. 未完了のタスク","8. 次に最初に行うこと","9. 前提条件・数値前提","10. 使用したコマンド・手順"]:
     i = t.find(s); j = t.find('\n## ', i)
     t = t[:j] + "\n実際に記入した中身をここに書いた。十分な分量の記述である。\n" + t[j:]
+# ⑨-1・⑨-2 の必須スロット（v59）も「埋めれば合格」の対象である
+t = t.replace('- 【要記入】', '- 発注・契約行為は委託契約締結日以降でなければならない。公募要領1-8⑵（記入例）')
 pathlib.Path(sys.argv[2]).write_text(t, encoding='utf-8')
 PY
 python3 tools/make_handover.py --check "$TMP/h2.md" > /dev/null 2>&1; chk "全章を埋めれば合格する" 0 $?
@@ -92,7 +94,7 @@ grep -q "【要記入】" "$TMP/auto.md" && chk "理由の欄に【要記入】�
 python3 tools/make_handover.py --check "$TMP/auto.md" > /dev/null 2>&1
 chk "【要記入】が残っていれば検査に落ちる（異常系）" 1 $?
 
-# --- 回帰（v58）：理由を書き足すと指紋が外れる。--seal で封をし直せば --check が通ること ---
+# --- 回帰（v59）：理由を書き足すと指紋が外れる。--seal で封をし直せば --check が通ること ---
 # 実測で見つけた設計の矛盾。「理由を埋めよ」と「指紋を保て」が同時に成立していなかった。
 python3 - "$TMP/auto.md" "$TMP/sealed.md" <<'PYT'
 import pathlib, sys
@@ -112,7 +114,7 @@ grep -q "一致。生成時" "$TMP/sr.txt" && chk "封のあとも指紋一致�
 python3 tools/make_handover.py --seal "$TMP/sealed.md" > "$TMP/sr2.txt" 2>&1
 grep -q "封をし直す必要は無い" "$TMP/sr2.txt" && chk "一致しているファイルへの --seal は何もしない" 0 0 || chk "一致しているファイルへの --seal は何もしない" 0 1
 
-# --- 案件名の機械的な正規化（v58）：2026-09-02 の事案 ---
+# --- 案件名の機械的な正規化（v59）：2026-09-02 の事案 ---
 # ユーザーが「kobo anken」と指定したのに、別のセッションが
 # `kobo_anken_hikitsugi_20260902_v1.md` を作った（語を足し、固定名を作らなかった）。
 mkj3() { python3 -c "
@@ -140,7 +142,7 @@ ok = (M.normalize_name('kobo anken')=='kobo_anken'
       and M.paths_for('kobo_anken','survey')[0]=='kobo_anken.survey_handover_latest.md')
 sys.exit(0 if ok else 1)"
 chk "正規化と命名の規則が仕様どおり" 0 $?
-# 回帰（v58）：原文の中に現れた「【要記入】」を記入欄と数えない。
+# 回帰（v59）：原文の中に現れた「【要記入】」を記入欄と数えない。
 # 実測：検査の合格出力「[ok] 【要記入】 が残っていない」が記録に取り込まれ、未記入1件として差し戻された。
 python3 -c "
 import sys; sys.path.insert(0,'tools')
@@ -156,13 +158,13 @@ python3 tools/make_handover.py --auto "$TMP/nm/東京案件_handover_latest.md" 
 chk "英数を含まない案件名では勝手に名前を付けず止まる（異常系）" 1 $?
 grep -q "一つだけ質問" "$TMP/nm2.txt" && chk "止めたとき質問するよう促す" 0 0 || chk "止めたとき質問するよう促す" 0 1
 
-# --- 承認された名前で作る／案件フォルダで整理する（v58）---
+# --- 承認された名前で作る／案件フォルダで整理する（v59）---
 mkdir -p "$TMP/rc/handover"
 mkj3 "$TMP/rc.jsonl"
 python3 tools/make_handover.py --auto "$TMP/rc/handover/dummy.md" --name "kobo anken omatsuri" --case kobo_anken --transcript "$TMP/rc.jsonl" > "$TMP/rc.txt" 2>&1
 chk "承認された名前で保存できる" 0 $?
 head -30 "$TMP/rc/handover/kobo_anken/kobo_anken_omatsuri_handover_latest.md" > "$TMP/hd.txt"
-grep -q "受け取ったセッションが、最初にすること" "$TMP/hd.txt" && chk "引き継ぎの先頭に「最初にすること」が入る（v58）" 0 0 || chk "引き継ぎの先頭に「最初にすること」が入る（v58）" 0 1
+grep -q "受け取ったセッションが、最初にすること" "$TMP/hd.txt" && chk "引き継ぎの先頭に「最初にすること」が入る（v59）" 0 0 || chk "引き継ぎの先頭に「最初にすること」が入る（v59）" 0 1
 grep -q "他の作業に着手しない" "$TMP/hd.txt" && chk "他の作業より先だと明記する（順序）" 0 0 || chk "他の作業より先だと明記する（順序）" 0 1
 grep -q "他の質問と束ねない" "$TMP/hd.txt" && chk "他の質問と束ねないと明記する（回帰）" 0 0 || chk "他の質問と束ねないと明記する（回帰）" 0 1
 grep -q "候補を出すのがこちらの仕事" "$TMP/hd.txt" && chk "丸投げを禁じている" 0 0 || chk "丸投げを禁じている" 0 1
@@ -184,7 +186,7 @@ n_td=$(find "$TMP/td/handover" -type f | wc -l)
 [ "$n_td" = "3" ] && chk "片付けで件数が変わらない（§8-5）" 0 0 || chk "片付けで件数が変わらない（§8-5）" 0 1
 
 
-# --- 枝分かれ（v58）：1つの作業が2つ以上のセッションへ分かれるとき ---
+# --- 枝分かれ（v59）：1つの作業が2つ以上のセッションへ分かれるとき ---
 mkj2() { python3 -c "
 import sys,pathlib,json
 sid=sys.argv[2]
@@ -325,7 +327,7 @@ chk "latest.json に版と取得先が入っている" 0 $?
 grep -q "マニュアル更新" dist/bootloader.md && chk "更新用の発動キーワードが載っている" 0 0 || chk "更新用の発動キーワードが載っている" 0 1
 grep -q "関門" dist/bootloader.md && chk "取得失敗時のフォールバックが載っている" 0 0 || chk "取得失敗時のフォールバックが載っている" 0 1
 [ "$(wc -l < dist/bootloader.md)" -lt 80 ] && chk "ブートローダーが80行未満（貼りやすさ）" 0 0 || chk "ブートローダーが80行未満（貼りやすさ）" 0 1
-# 貼付版番号（v58）：full と mini の1行目に同じ BL-n が入り、再ビルドで番号が勝手に進まない
+# 貼付版番号（v59）：full と mini の1行目に同じ BL-n が入り、再ビルドで番号が勝手に進まない
 BL_F=$(head -1 dist/bootloader.md | grep -o 'BL-[0-9]*'); BL_M=$(head -1 dist/bootloader_mini.md | grep -o 'BL-[0-9]*')
 [ -n "$BL_F" ] && [ "$BL_F" = "$BL_M" ] && chk "貼付版番号が full と mini で一致（$BL_F）" 0 0 || chk "貼付版番号が full と mini で一致" 0 1
 R_A=$(python3 -c "import json;print(json.load(open('tools/boot_rev.json'))['rev'])"); python3 tools/build_latest.py >/dev/null 2>&1
