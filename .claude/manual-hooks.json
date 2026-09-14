@@ -10,10 +10,10 @@
     "undated_time_reference": true,
     "unverified_before_irreversible": true
   },
-  "_degradation_comment": "劣化の判定値。実測に合わせて自由に変えてよい。主指標は負荷スコア（会話の記録MB ＋ テキスト成果物MB ＋ バイナリ成果物MB×binary_weight）。往復数は補助指標であり、単独では申告水準に達しない。基準点＝往復864回・会話2.5MB・テキスト成果物1.4MB でスコア約3.9、体感良好（2026-08-28 実測）。",
+  "_degradation_comment": "劣化の判定値。実測に合わせて自由に変えてよい。主指標は負荷スコア（会話の記録MB ＋ テキスト成果物MB ＋ バイナリ成果物MB×binary_weight）。往復数は補助指標であり、単独では申告水準に達しない。基準点＝往復864回・会話2.5MB・テキスト成果物1.4MB でスコア約3.9、体感良好（2026-08-28 実測）。v61（2026-09-14）＝スコア44.9のセッションが支障なく応答との実測とユーザー指示により 8/20→15/35 へ引き上げ（劣化実測のスライド事例≒36を下回らせない）。",
   "degradation": {
-    "notice_score": 8.0,
-    "report_score": 20.0,
+    "notice_score": 15.0,
+    "report_score": 35.0,
     "binary_weight": 3.0,
     "notice_turns": 600,
     "report_turns": 1200,
