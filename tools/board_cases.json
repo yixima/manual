@@ -17,9 +17,16 @@
       "expected": [
         "naikakuhu_as_handover_latest.md",
         "naikakuhu_as_shuttennsha_handover_latest.md",
-        "naikakuhu_london_handover_latest.md"
+        "naikakuhu_london_handover_latest.md",
+        "naikakuhu_as_h2o_handover_latest.md"
       ],
-      "_note": "親案件の固定名は 2026-09-11 に救出セッションが保存（50,192B）。枝は親案件フォルダに入れる（§5.6 枝ごとにフォルダを分けない）——london の別フォルダ移動提案は不承認"
+      "_note": "親案件の固定名は 2026-09-11 に救出セッションが保存（50,192B）。枝は親案件フォルダに入れる（§5.6 枝ごとにフォルダを分けない）——london の別フォルダ移動提案は不承認。枝 h2o（2026-09-14 保存）は別フォルダに置かれているのを 2026-09-16 の照合で検出——次回そのセッションで --tidy による親フォルダへの移動を案内する"
+    },
+    "omatsuri": {
+      "expected": [
+        "omatsuri_handover_latest.md"
+      ],
+      "_note": "2026-09-15 夜にユーザーが受け口へ配置（781KB・おまつり歳時記セッションの依頼による）。2026-09-16 の照合で検出し台帳へ追記"
     }
   }
 }
