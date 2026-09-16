@@ -10,8 +10,10 @@
       "expected": [
         "kobo_anken_handover_latest.md",
         "kobo_anken_omatsuri_handover_latest.md",
-        "kobo_anken_jizokuka_kokyaku_handover_latest.md"
-      ]
+        "kobo_anken_jizokuka_kokyaku_handover_latest.md",
+        "kobo_anken_search_workflow_handover_latest.md"
+      ],
+      "_note": "search_workflow は公募案件検索ワークフローセッションが 2026-09-16 に保存（定期便の作動）。2026-09-17 の照合で検出し台帳へ追記"
     },
     "naikakuhu_as": {
       "expected": [
