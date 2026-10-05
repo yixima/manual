@@ -14,7 +14,7 @@ chk() { # chk <説明> <期待終了コード> <実際の終了コード>
 echo "── inject_gate.py ──"
 out=$(echo "{\"cwd\":\"$PWD\",\"transcript_path\":\"/nonexistent\"}" | python3 .claude/hooks/inject_gate.py); rc=$?
 chk "正常終了" 0 $rc
-[ "$(echo "$out" | wc -l)" -ge 10 ] && chk "関門9項が出力される" 0 0 || chk "関門9項が出力される" 0 1
+echo "$out" | grep -q "^10 調べれば埋まるもの" && chk "関門10項（欠落の検査を含む）が出力される" 0 0 || chk "関門10項（欠落の検査を含む）が出力される" 0 1
 echo "$out" | grep -q "現在日時" && chk "現在日時が注入される" 0 0 || chk "現在日時が注入される" 0 1
 echo "$out" | grep -qE "[0-9]{4}-[0-9]{2}-[0-9]{2}" && chk "実測した日付が入っている" 0 0 || chk "実測した日付が入っている" 0 1
 chk "入力が空でも落ちない" 0 "$(echo '' | python3 .claude/hooks/inject_gate.py >/dev/null 2>&1; echo $?)"

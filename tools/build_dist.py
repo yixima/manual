@@ -4,7 +4,7 @@
 
 検査項目：
   1. L0 が200行以下であること（L1 §0-14 の物理上限）
-  2. L0 の関門9項と、L1 §0-10② の関門9項が食い違っていないこと
+  2. L0 の関門10項と、L1 §0-10② の関門10項が食い違っていないこと
   3. L0 の自動発動表の行と、L1 §0-11 の表の行が食い違っていないこと
   4. 版表記・発行日が L0／L1／L2 で一致していること
   5. 配布ファイル名が ^[A-Za-z0-9._-]+$ に適合すること（§7-11）
@@ -45,17 +45,17 @@ _head = '\n'.join(txt['L0'].splitlines()[:8])
 _others = sorted(set(re.findall(r'v\d+', _head)) - {VER})
 check(not _others, f'カード冒頭8行の版表記が {VER} のみ（旧版の残存なし）', f'旧版が残存: {_others}')
 
-# 2. 関門9項の一致（表現ではなく「各項が指す条項番号の集合」で照合する）
+# 2. 関門10項の一致（表現ではなく「各項が指す条項番号の集合」で照合する）
 #    L0 は短縮表現を用いるが、指し示す条項は L1 と同一でなければならない。
 def gate_items(t, anchor):
-    """関門の各項が参照する条項番号の集合を、1〜9の順に返す。
+    """関門の各項が参照する条項番号の集合を、1〜10の順に返す。
     項の終わりは、次の番号付き項／見出し／表／トップレベル箇条書きのいずれかで判定する。"""
     k = t.find(anchor)
     if k < 0:
         return []
     items, cur, expect = [], None, 1
     for ln in t[k:].splitlines()[1:]:
-        m = re.match(r'\s*(\d)\.\s', ln)
+        m = re.match(r'\s*(\d{1,2})\.\s', ln)
         if m and int(m.group(1)) == expect:
             if cur is not None:
                 items.append(cur)
@@ -66,15 +66,15 @@ def gate_items(t, anchor):
             cur |= set(f'{a}-{b}' for a, b in re.findall(r'§\s?(\d+)-(\d+)', ln))
     if cur is not None:
         items.append(cur)
-    return items[:9]
+    return items[:10]
 
 g0 = gate_items(txt['L0'], '## 2. 送信直前の関門')
 g1 = gate_items(txt['L1'], '② 送信直前の必須ミニチェック')
-check(len(g0) == 9, 'L0 の関門が9項ある', f'{len(g0)} 項')
-check(len(g1) == 9, 'L1 の関門が9項ある', f'{len(g1)} 項')
+check(len(g0) == 10, 'L0 の関門が10項ある', f'{len(g0)} 項')
+check(len(g1) == 10, 'L1 の関門が10項ある', f'{len(g1)} 項')
 diff = [i + 1 for i, (a, b) in enumerate(zip(g0, g1)) if a != b]
-check(not diff and len(g0) == len(g1) == 9,
-      'L0 と L1 の関門9項が同じ条項を指す',
+check(not diff and len(g0) == len(g1) == 10,
+      'L0 と L1 の関門10項が同じ条項を指す',
       f'食い違う項: {diff}  L0={[sorted(g0[i-1]) for i in diff]}  L1={[sorted(g1[i-1]) for i in diff]}')
 
 # 3. 自動発動表の行の一致（左欄の見出し語で照合する）
@@ -225,7 +225,7 @@ DIST.joinpath('DISTRIBUTION.md').write_text(f"""# 配布手順（この検査を
 コアカードが変わっていれば `~/.claude/CLAUDE.md` を自動で差し替える。**利用者の操作は不要。**
 
 ### 限界（隠さない）
-- URLの取得ができない環境では、ブートローダーに内蔵したフォールバック（関門9項＋出力契約）だけが働く。
+- URLの取得ができない環境では、ブートローダーに内蔵したフォールバック（関門10項＋出力契約）だけが働く。
   **その場合は必ず申告される。**
 - **URLを管理する者がルールを決める。** このURLは、必ず自分の管理下にあるものだけを指すこと。
 
