@@ -23,7 +23,7 @@
         "naikakuhu_london_handover_latest.md",
         "naikakuhu_as_h2o_handover_latest.md"
       ],
-      "_note": "2026-10-08 枝 h2o を親フォルダへ移動完了（§5.6 逸脱を解消。別フォルダ naikakuhu_as_h2o は空にしてゴミ箱へ・復元可能）。案件は休止中のため停滞警告の対象外"
+      "_note": "2026-10-08 枝 h2o を親フォルダへ移動完了（§5.6 逸脱を解消。別フォルダ naikakuhu_as_h2o は空にしてゴミ箱へ・復元可能）。【2026-10-09 検出】10/8 19:42-19:51 JST に別主体（本管理セッションではないことをトランスクリプトで確認済み）が 親 latest を新版38,604Bで作り直し（旧版は 20260915_v3 へ改名・正常な定期便の形）、同時に新フォルダ naikakuhu_london/ を受け口直下に作成して naikakuhu_london_handover_latest.md（17,458B）を配置——同じ固定名が2か所に存在する状態（naikakuhu_as 内の 40,146B・9/9 版が残存）。2026-09-15 の『london の別フォルダ化は不承認』決定と食い違うためユーザー確認待ち。照合は当面 naikakuhu_as 内の4本を正とする"
     },
     "omatsuri": {
       "expected": [
@@ -36,7 +36,7 @@
         "list_handover_latest.md",
         "list_buyer_handover_latest.md"
       ],
-      "_note": "2026-10-06 照合で検出・登録。10-08 に枝 list_buyer と shared_data サブフォルダを確認（日次更新・活発）。作成元は Chat/Cowork とみられる【未確認・推測】。正式名はユーザー宣言で確定"
+      "_note": "2026-10-06 照合で検出・登録。10-08 に枝 list_buyer と shared_data サブフォルダを確認（日次更新・活発）。【2026-10-09】list_buyer_handover_latest.md が 10/8 23:42 JST に到着——[Code] セッション「list_buyer 続き」（10/8 新設・session_01FA4xBiApPqdnda9WdrfCBT）が Drive 直接配置した実例（コネクタ保有 [Code] の2例目）。buyers/ サブフォルダも出現。親 list の作成元は Chat/Cowork とみられる【未確認・推測】。正式名はユーザー宣言で確定"
     },
     "shorui_shusei": {
       "expected": [
