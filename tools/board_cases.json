@@ -95,6 +95,13 @@
       "status": "未作成",
       "_note": "[Code] セッション「ループエンジニアリングのブラウザ側」（loop）。2026-10-08 の双方向化で登録。引き継ぎが受け口に一度も置かれていない。経路＝セッション自身が Drive ツールで claude_handover/ 直下に案件フォルダを作って配置する（2026-10-08 ユーザー指示で添付経路を廃止。Drive ツールが無い環境ではユーザーがその会話の設定で Google Drive コネクタを有効化→以後セッションが自分で配置）。案件名は仮（ユーザー宣言で確定）"
     },
+    "office365_kanri": {
+      "expected": [
+        "office365_kanri_handover_latest.md"
+      ],
+      "status": "未作成",
+      "_note": "[Code] セッション「Office365 アカウント管理」（session_01..tfvApj3Vhj・2026-10-24 03:15 JST 稼働を検出）。2026-10-24 の双方向照合で登録（到着を待たない規則）。案件名は仮（ユーザー宣言で確定）。経路＝セッション自身が Drive ツールまたはスキル drive-handover-upload で配置"
+    },
     "kyushu": {
       "expected": [
         "kyushu_handover_latest.md"
