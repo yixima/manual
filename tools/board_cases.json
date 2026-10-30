@@ -112,6 +112,13 @@
       "expected": [],
       "status": "受け口外",
       "_note": "clair の引き継ぎは claude.ai プロジェクト内に保管（当該セッションが確認済み・2026-09-25）。受け口には置かない運用のまま——変更するならユーザー指示で"
+    },
+    "consulting": {
+      "expected": [
+        "consulting_handover_latest.md"
+      ],
+      "status": "未作成",
+      "_note": "[Code] セッション「コンサル」（consulting）。2026-10-30 の失敗報告書 HOUKOKU_manual_session_20261030_v1（PDF 納品時に Artifact 表示を添えなかった件）の発行元。報告書受領と同時に登録（到着を待たない規則）。経路＝セッション自身が Drive ツールまたはスキル drive-handover-upload で配置。案件名は仮（ユーザー宣言で確定）"
     }
   }
 }
