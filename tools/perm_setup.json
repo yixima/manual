@@ -1,0 +1,41 @@
+{
+  "_comment": "承認スキップ設定（.claude/settings.json の permissions.allow）の設置台帳。毎朝の状況ボードが list_repos と突き合わせ、未設置リポジトリを名指しで掲示する（2026-11-02 ユーザー指示：全セッションで承認待ちを撲滅。新リポジトリは自動では反映されないため、この検出網で取りこぼしを防ぐ）。設置はユーザーの2操作（リンク→貼り付け→Commit）。エージェントによる設置は分類器が拒否（Self-Modification／Access Added As A Means・2026-11-02 実測）",
+  "repos": {
+    "hojo": {
+      "status": "設置済み",
+      "date": "2026-11-02",
+      "note": "ユーザーが2クリック版リンクで設置・方式の実証1例目"
+    },
+    "manual": {
+      "status": "未設置",
+      "note": "既存 settings.json（フック入り）があるため編集リンク＋A貼り替え方式"
+    },
+    "DM": {
+      "status": "未設置"
+    },
+    "management": {
+      "status": "未設置"
+    },
+    "kintone": {
+      "status": "未設置"
+    },
+    "list": {
+      "status": "未設置"
+    },
+    "shorui": {
+      "status": "未設置"
+    },
+    "loop": {
+      "status": "未設置"
+    },
+    "picture": {
+      "status": "未設置"
+    },
+    "planning": {
+      "status": "未設置"
+    },
+    "windows": {
+      "status": "未設置"
+    }
+  }
+}
