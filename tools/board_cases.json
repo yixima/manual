@@ -24,7 +24,7 @@
         "naikakuhu_as_h2o_handover_latest.md",
         "naikakuhu_as_unnei_handover_latest.md"
       ],
-      "_note": "【2026-10-10 検出・登録】枝 unnei（naikakuhu_as_unnei_handover_latest.md・11,963B）が 2026-10-09 20:27 JST に親フォルダへ直接配置された——枝は親フォルダに置く正しい形。作成主体は Drive を持つ Chat/Cowork セッションとみられる【未確認・推測】。2026-10-08 枝 h2o を親フォルダへ移動完了（§5.6 逸脱を解消。別フォルダ naikakuhu_as_h2o は空にしてゴミ箱へ・復元可能）。【2026-10-09 検出】10/8 19:42-19:51 JST に別主体（本管理セッションではないことをトランスクリプトで確認済み）が 親 latest を新版38,604Bで作り直し（旧版は 20260915_v3 へ改名・正常な定期便の形）、同時に新フォルダ naikakuhu_london/ を受け口直下に作成して naikakuhu_london_handover_latest.md（17,458B）を配置——同じ固定名が2か所に存在する状態（naikakuhu_as 内の 40,146B・9/9 版が残存）。2026-09-15 の『london の別フォルダ化は不承認』決定と食い違うためユーザー確認待ち。照合は当面 naikakuhu_as 内の4本を正とする"
+      "_note": "【2026-10-10 検出・登録】枝 unnei（naikakuhu_as_unnei_handover_latest.md・11,963B）が 2026-10-09 20:27 JST に親フォルダへ直接配置された——枝は親フォルダに置く正しい形。作成主体は Drive を持つ Chat/Cowork セッションとみられる【未確認・推測】。2026-10-08 枝 h2o を親フォルダへ移動完了（§5.6 逸脱を解消。別フォルダ naikakuhu_as_h2o は空にしてゴミ箱へ・復元可能）。【2026-10-09 検出】10/8 19:42-19:51 JST に別主体（本管理セッションではないことをトランスクリプトで確認済み）が 親 latest を新版38,604Bで作り直し（旧版は 20260915_v3 へ改名・正常な定期便の形）、同時に新フォルダ naikakuhu_london/ を受け口直下に作成して naikakuhu_london_handover_latest.md（17,458B）を配置——同じ固定名が2か所に存在する状態（naikakuhu_as 内の 40,146B・9/9 版が残存）。2026-09-15 の『london の別フォルダ化は不承認』決定と食い違うためユーザー確認待ち。照合は当面 naikakuhu_as 内の4本を正とする。【2026-11-05 検出】別フォルダ naikakuhu_london/ 内に naikakuhu_london_unnei_handover_latest.md（8,814B・11/4 19:52 JST）が新規配置——寄せ先未回答のまま london 別フォルダ側が使われ続けている。unnei の固定名が naikakuhu_as 内（10/9 版）と2系統になった。寄せ先の回答を最優先で"
     },
     "omatsuri": {
       "expected": [
@@ -131,6 +131,13 @@
         "JNTO_handover_latest.md"
       ],
       "_note": "2026-10-31 朝の照合で新検出。10/30 21:58 JST に固定名、以後 v2・v3・v3_1 を版番号で追加。2026-11-02 受領の失敗報告書（HOUKOKU_manual_session_20261031_v1・応答言語ほか6件）の発行元で、経緯が実測と整合：v3 を最終修正前に保存→追補 v3_1 を追加（R1 遵守・削除なし）。固定名は v1 時点のままなので、次の節目で指紋確認後の更新を当該チャットへ。ブース パース制作の [Code] セッション。案件名は配置ファイル名から採録（ユーザー宣言で確定）"
+    },
+    "mac_kino": {
+      "expected": [
+        "mac_kino_handover_latest.md"
+      ],
+      "status": "未作成",
+      "_note": "[Code] セッション「Mac 機能」（リポジトリ yixima/Macsystem・2026-11-04 15:57 JST 新設を検出）。日本語IMEの診断・修復スクリプトを作成しユーザーのターミナル実行待ちと申告。2026-11-05 の双方向照合で登録（到着を待たない規則）。案件名は仮（ユーザー宣言で確定）"
     }
   }
 }
