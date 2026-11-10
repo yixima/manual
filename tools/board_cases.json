@@ -138,6 +138,27 @@
       ],
       "status": "未作成",
       "_note": "[Code] セッション「Mac 機能」（リポジトリ yixima/Macsystem・2026-11-04 15:57 JST 新設を検出）。日本語IMEの診断・修復スクリプトを作成しユーザーのターミナル実行待ちと申告。2026-11-05 の双方向照合で登録（到着を待たない規則）。案件名は仮（ユーザー宣言で確定）"
+    },
+    "wakayama_teian": {
+      "expected": [
+        "wakayama_teian_handover_latest.md"
+      ],
+      "status": "未作成",
+      "_note": "[Code] セッション「和歌山提案作成」（2026-11-10 18:09 JST 新設）。2026-11-11 の双方向照合で登録。claude-artifacts の発行承認待ちで停止中（11/10 20:08〜）。案件名は仮（ユーザー宣言で確定）"
+    },
+    "fukushima_teian": {
+      "expected": [
+        "fukushima_teian_handover_latest.md"
+      ],
+      "status": "未作成",
+      "_note": "[Code] セッション「福島提案作成」（2026-11-10 18:07 JST 新設）。2026-11-11 の双方向照合で登録。協力先4分野（撮影・翻訳・広告運用・台湾現地）の回答待ち。案件名は仮（ユーザー宣言で確定）"
+    },
+    "kensaku_wf2": {
+      "expected": [
+        "kensaku_wf2_handover_latest.md"
+      ],
+      "status": "未作成",
+      "_note": "[Code] セッション「公募案件検索ワークフロー 2」（2026-11-10 18:03 JST 新設・hojo）。2026-11-11 の双方向照合で登録。ナビ仕様書等の添付または CN_USER/CN_PASS 環境変数の設定待ち・希望申請 11/17 17:00 と申告。案件名は仮（ユーザー宣言で確定）"
     }
   }
 }
