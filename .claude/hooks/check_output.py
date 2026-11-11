@@ -38,7 +38,8 @@ def load_cfg(cwd):
                                       "unexplained_incomplete": True,
                                       "undefined_jargon": True,
                                       "undated_time_reference": True,
-                                      "unverified_before_irreversible": True}}
+                                      "unverified_before_irreversible": True,
+                                      "file_without_artifact": True}}
     for cand in _candidates(cwd, 'manual-hooks.json'):
         try:
             cfg.update(json.loads(cand.read_text(encoding='utf-8')))
@@ -177,6 +178,15 @@ def unverified_before_irreversible(msg):
             return True
     return False
 
+# R8【型U・v64新設】ファイルを渡す応答に、右側表示の閲覧ページ（Artifact）の URL が無い（L1 §7-12／§0-15）
+#   実測3回（2026-10-30 consulting・2026-11-11 Wakayama×2）：§5.5 に「①添付②右側表示」の条文が
+#   あるのに、納品作業からは一度も引かれなかった。**条文の置き場所を変えても読み飛ばしは残る**ため、
+#   機械検査を併設する（JNTO 報告書の限界指摘「関門の読み飛ばしでは防げない」への回答）。
+#   引き金は plain(msg)（地の文）から、免罪の証拠（URL・対象外宣言）は本文全体から探す（v55 の原則）。
+RE_DELIVER = re.compile(r'(添付しました|添付します|お渡ししました|ダウンロードできる形で添付)')
+RE_ARTIFACT_URL = re.compile(r'claude\.ai/(artifact|public/artifacts)/')
+ESCAPE_PHRASE_U = '右側表示の対象外'
+
 # R6【型K】日時に依存する記述に基準日が無い（L1 §3-7）
 RE_TIMEREF = re.compile(r'(今日|本日|現在|最新|今月|今週|来週|来月|昨日|明日|締切|期限)')
 RE_DATE = re.compile(r'(\d{4}[-/年]\d{1,2}[-/月]\d{1,2}|\d{1,2}月\d{1,2}日|基準[:：]|JST|UTC)')
@@ -226,6 +236,12 @@ def evaluate(msg, cfg, cwd='.', session='x'):
     if r.get("undated_time_reference", True) and RE_TIMEREF.search(plain(msg)) and not RE_DATE.search(msg) and len(msg) > 300:
         viol.append(("型K", "「今日」「現在」「最新」など日時に依存する記述があるが、基準となる日付が書かれていない。"
                             "毎ターン注入される現在日時を基準にし、本文に基準日を明記する（§3-7）。"))
+    if r.get("file_without_artifact", True) and RE_DELIVER.search(plain(msg)) \
+            and not RE_ARTIFACT_URL.search(msg) and ESCAPE_PHRASE_U not in msg:
+        viol.append(("型U", "ファイルを渡す応答なのに、右側ウィンドウで表示できる閲覧ページ（Artifact）の URL が無い。"
+                            "**ファイルを渡すときは①ダウンロードできる添付と②右側表示の閲覧ページの両方を、同じ応答で満たす**"
+                            "（§7-12／§0-15。PDF 等は頁を画像化した閲覧ページで発行する）。"
+                            f"②が本当に不要なものだけなら、その理由とともに「{ESCAPE_PHRASE_U}」と本文に明記すること。"))
     if r.get("unverified_before_irreversible", True) and unverified_before_irreversible(msg):
         viol.append(("型M", "**未確認の項目を残したまま、不可逆・外向きの操作（発行・公開・送信・削除など）の"
                             "承認を求めている。** 確信度ラベルや「要裏取り」は、"

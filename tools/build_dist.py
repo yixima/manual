@@ -178,15 +178,35 @@ else:
 # 8. 第三者監査パックが版に取り残されていないこと
 #    実測（2026-09-03）：監査パックは版番号を直書きしていたため、**19版ぶん古いまま**放置されていた。
 #    版番号を書かなければ古くならない——ブートローダーと同じ理屈である。
+#    例外（v64）：chatgpt_knowledge_* は dist の全文複製であり、本文に版名を含むのが正しい。
+#    こちらは「版名を書かない」ではなく「生成で同期し、8b で一致を検査する」ことで古びを潰す。
 _verref = re.compile(r'_v\d+\.md|manual_v\d+|core_card_v\d+|records_v\d+')
 _stale_audit = []
 for f in sorted(pathlib.Path('chatgpt').glob('*.md')):
+    if f.name.startswith('chatgpt_knowledge_'):
+        continue
     for i, ln in enumerate(f.read_text(encoding='utf-8').splitlines(), 1):
         if _verref.search(ln) and 'v13_v15' not in ln:   # 歴史的な文書名は対象外
             _stale_audit.append(f'{f.name}:{i}')
 check(not _stale_audit,
       '第三者監査パックが版番号を直書きしていない（古くならない形）',
       f'版番号を直書き: {_stale_audit[:5]}')
+
+# 8b. ChatGPT パッケージの知識ファイル（dist の全文複製）が最新版と一致していること
+#     （tools/build_latest.py が自動同期する。手で写した複製はいつか必ず古くなる——CLAUDE.md と同じ理屈）
+_kn = {'chatgpt/chatgpt_knowledge_1_core_card_L0.md': txt['L0'],
+       'chatgpt/chatgpt_knowledge_2_manual_L1.md': txt['L1'],
+       'chatgpt/chatgpt_knowledge_3_records_L2.md': txt['L2']}
+for _p, _want in _kn.items():
+    _f = pathlib.Path(_p)
+    check(_f.exists() and _f.read_text(encoding='utf-8') == _want,
+          f'{_p} が最新版と一致している',
+          'dist を直したあと python3 tools/build_latest.py を実行していない')
+_k4 = pathlib.Path('chatgpt/chatgpt_knowledge_4_bootloader_handover.md')
+_boot = DIST / 'bootloader.md'
+check(_k4.exists() and _boot.exists() and _k4.read_text(encoding='utf-8').startswith(_boot.read_text(encoding='utf-8')),
+      'chatgpt/chatgpt_knowledge_4 が最新のブートローダーを内蔵している',
+      'python3 tools/build_latest.py を実行していない')
 
 print('── 配布前検査（tools/build_dist.py）──')
 for s in ok: print(f'  [ok] {s}')
