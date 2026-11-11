@@ -141,10 +141,9 @@
     },
     "wakayama_teian": {
       "expected": [
-        "wakayama_teian_handover_latest.md"
+        "（kobo_anken/ 内の枝）Wakayama_handover_latest.md"
       ],
-      "status": "未作成",
-      "_note": "[Code] セッション「和歌山提案作成」（2026-11-10 18:09 JST 新設）。2026-11-11 の双方向照合で登録。claude-artifacts の発行承認待ちで停止中（11/10 20:08〜）。案件名は仮（ユーザー宣言で確定）"
+      "_note": "[Code] セッション「和歌山提案作成」。2026-11-11 に kobo_anken/ の枝 Wakayama として固定名＋日付版 v1 を自力配置【実測確認済み】（昨日の仮名 wakayama_teian から枝名 Wakayama に確定・親は kobo_anken と自己申告）。同日、失敗報告書（定期便文言の事実不一致・§5.5 欠落の2例目再発）を発行——v64 材料へ記録済み"
     },
     "fukushima_teian": {
       "expected": [
