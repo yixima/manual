@@ -143,7 +143,7 @@
       "expected": [
         "（kobo_anken/ 内の枝）Wakayama_handover_latest.md"
       ],
-      "_note": "[Code] セッション「和歌山提案作成」。2026-11-11 に kobo_anken/ の枝 Wakayama として固定名＋日付版 v1 を自力配置【実測確認済み】（昨日の仮名 wakayama_teian から枝名 Wakayama に確定・親は kobo_anken と自己申告）。同日、失敗報告書（定期便文言の事実不一致・§5.5 欠落の2例目再発）を発行——v64 材料へ記録済み"
+      "_note": "[Code] セッション「和歌山提案作成」。2026-11-11 に kobo_anken/ の枝 Wakayama として固定名＋日付版 v1 を自力配置【実測確認済み】（昨日の仮名 wakayama_teian から枝名 Wakayama に確定・親は kobo_anken と自己申告）。同日、失敗報告書 v1（定期便文言の事実不一致・§5.5 欠落）と v2（同一セッション内2度目の §5.5 指摘＝計3回目の同型。部分読み・「置いた/渡した」の区別・原本と別見た目の Artifact の3原因）を発行——v64 材料へ記録済み"
     },
     "fukushima_teian": {
       "expected": [
