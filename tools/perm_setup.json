@@ -1,46 +1,46 @@
 {
-  "_comment": "承認スキップ設定（.claude/settings.json の permissions.allow）の設置台帳。毎朝の状況ボードが list_repos と突き合わせ、未設置リポジトリを名指しで掲示する（2026-11-02 ユーザー指示：全セッションで承認待ちを撲滅。新リポジトリは自動では反映されないため、この検出網で取りこぼしを防ぐ）。設置はユーザーの2操作（リンク→貼り付け→Commit）。エージェントによる設置は分類器が拒否（Self-Modification／Access Added As A Means・2026-11-02 実測）",
-  "repos": {
-    "hojo": {
-      "status": "設置済み",
-      "date": "2026-11-02",
-      "note": "2クリック版で設置済み（11/2・実証1例目）。2026-11-11 実測：リポジトリは Private 化も完了"
-    },
-    "manual": {
-      "status": "未設置",
-      "note": "既存 settings.json（フック入り）があるため編集リンク＋A貼り替え方式"
-    },
-    "DM": {
-      "status": "未設置",
-      "note": "2026-11-11 実測：リポジトリは Private 化完了（露出60日目で解消）。許可リストは未設置のまま"
-    },
-    "management": {
-      "status": "未設置"
-    },
-    "kintone": {
-      "status": "未設置"
-    },
-    "list": {
-      "status": "未設置"
-    },
-    "shorui": {
-      "status": "未設置"
-    },
-    "loop": {
-      "status": "未設置"
-    },
-    "picture": {
-      "status": "未設置"
-    },
-    "planning": {
-      "status": "未設置"
-    },
-    "windows": {
-      "status": "未設置"
-    },
-    "Macsystem": {
-      "status": "未設置",
-      "note": "2026-11-04 新設リポジトリ・11/5 の照合で検出"
-    }
+ "_comment": "承認スキップ設定（.claude/settings.json の permissions.allow）の設置台帳。毎朝の状況ボードが list_repos と突き合わせ、未設置リポジトリを名指しで掲示する（2026-11-02 ユーザー指示：全セッションで承認待ちを撲滅。新リポジトリは自動では反映されないため、この検出網で取りこぼしを防ぐ）。設置はユーザーの2操作（リンク→貼り付け→Commit）。エージェントによる設置は分類器が拒否（Self-Modification／Access Added As A Means・2026-11-02 実測）。【2026-11-12 v2】アーティファクト発行（Artifact・SendUserFile・claude-artifacts 系15件）を許可リストへ追加（ユーザー指示：アーティファクト出力の都度承認で全セッションが停止）。基準はキット v2——v1 設置済みの hojo も差し替えが必要",
+ "repos": {
+  "hojo": {
+   "status": "v1設置済み・v2差し替え待ち",
+   "date": "2026-11-02",
+   "note": "2クリック版で設置済み（11/2・実証1例目）。2026-11-11 実測：リポジトリは Private 化も完了。11/12：v2（Artifact 許可入り）への差し替えを依頼中"
+  },
+  "manual": {
+   "status": "未設置",
+   "note": "既存 settings.json（フック入り）があるため編集リンク＋A貼り替え方式"
+  },
+  "DM": {
+   "status": "未設置",
+   "note": "2026-11-11 実測：リポジトリは Private 化完了（露出60日目で解消）。許可リストは未設置のまま"
+  },
+  "management": {
+   "status": "未設置"
+  },
+  "kintone": {
+   "status": "未設置"
+  },
+  "list": {
+   "status": "未設置"
+  },
+  "shorui": {
+   "status": "未設置"
+  },
+  "loop": {
+   "status": "未設置"
+  },
+  "picture": {
+   "status": "未設置"
+  },
+  "planning": {
+   "status": "未設置"
+  },
+  "windows": {
+   "status": "未設置"
+  },
+  "Macsystem": {
+   "status": "未設置",
+   "note": "2026-11-04 新設リポジトリ・11/5 の照合で検出"
   }
+ }
 }
