@@ -7,8 +7,9 @@
    "note": "2026-11-17 ユーザー報告「hojo」——キット v2.1（Artifact 発行・SendUserFile・読み取り37件）へ差し替え済み。11/16 夜に WF3 のアーティファクト承認停止が解消した事実と整合"
   },
   "manual": {
-   "status": "未設置",
-   "note": "既存 settings.json（フック入り）があるため編集リンク＋A貼り替え方式"
+   "status": "設置済み（v2）",
+   "date": "2026-11-17",
+   "note": "2026-11-17 ユーザー報告「Manuel のみ完了」（manual の表記ゆれと解釈——list_repos に Manuel は無く manual のみ）。キット v2.1 の A（フック設定入り＋Artifact 発行・読み取り許可）へ差し替え済み"
   },
   "DM": {
    "status": "設置済み（v2）",
