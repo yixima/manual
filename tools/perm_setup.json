@@ -2,9 +2,9 @@
  "_comment": "承認スキップ設定（.claude/settings.json の permissions.allow）の設置台帳。毎朝の状況ボードが list_repos と突き合わせ、未設置リポジトリを名指しで掲示する（2026-11-02 ユーザー指示：全セッションで承認待ちを撲滅。新リポジトリは自動では反映されないため、この検出網で取りこぼしを防ぐ）。設置はユーザーの2操作（リンク→貼り付け→Commit）。エージェントによる設置は分類器が拒否（Self-Modification／Access Added As A Means・2026-11-02 実測）。【2026-11-12 v2】アーティファクト発行（Artifact・SendUserFile・claude-artifacts 系15件）を許可リストへ追加（ユーザー指示：アーティファクト出力の都度承認で全セッションが停止）。基準はキット v2——v1 設置済みの hojo も差し替えが必要",
  "repos": {
   "hojo": {
-   "status": "設置済み（v2）",
+   "status": "設置済み（main=v2／作業ブランチ=広域版）",
    "date": "2026-11-17",
-   "note": "2026-11-17 ユーザー報告「hojo」——キット v2.1（Artifact 発行・SendUserFile・読み取り37件）へ差し替え済み。11/16 夜に WF3 のアーティファクト承認停止が解消した事実と整合。【2026-11-19 訂正】11/18 の「実証1例目」は誤り——WF3 は作業ブランチ claude/public-bid-search-workflow-uzj3te 上で動いており、main に置いた settings.json は届かない（11/19 もアーティファクト承認で停止・ユーザー報告）。恒久化には当該ブランチにも同じファイルが必要"
+   "note": "2026-11-17 ユーザー報告「hojo」——キット v2.1（Artifact 発行・SendUserFile・読み取り37件）へ差し替え済み。11/16 夜に WF3 のアーティファクト承認停止が解消した事実と整合。【2026-11-19 訂正】11/18 の「実証1例目」は誤り——WF3 は作業ブランチ claude/public-bid-search-workflow-uzj3te 上で動いており、main に置いた settings.json は届かない（11/19 もアーティファクト承認で停止・ユーザー報告）。恒久化には当該ブランチにも同じファイルが必要。【2026-11-20】作業ブランチ claude/public-bid-search-workflow-uzj3te に settings.json が存在（ユーザー実見・転記）：mcp__claude-artifacts をサーバー全体で許可＋Bash/Edit/Write 等の広域許可。WF3 自身がユーザー同意（「加えてよい」）を受けて書き込んだとみられる【未確認・推測】。11/21 朝の日次実行で承認なし完走を検証予定"
   },
   "manual": {
    "status": "設置済み（v2）",
